@@ -12,6 +12,10 @@ file(GLOB_RECURSE SOURCE_FILES # idk what is the best practice for src file mana
     src/*.h
 )
 
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
 add_executable(${PROJNAME} ${SOURCE_FILES})
 
 # Qt configuration
@@ -28,7 +32,6 @@ target_link_libraries(${PROJNAME} PRIVATE
     Qt6::Concurrent
 )
 qt_standard_project_setup()
-set(CMAKE_AUTORCC ON)
 
 # Vulkan configuration
 find_package(Vulkan REQUIRED)

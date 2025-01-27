@@ -22,6 +22,15 @@ int main(int argc, char *argv[]) {
     }
 
     QVulkanWindow window;
+    /*
+    QVulkanWindow is a Vulkan-capable QWindow that manages a Vulkan device, a graphics queue,
+    a command pool and buffer, a depth-stencil image and a double-buffered FIFO swapchain,
+    while taking care of correct behavior when it comes to events like resize,
+    special situations like not having a device queue supporting both graphics and presentation, 
+    device lost scenarios, and additional functionality like reading the rendered content back. 
+    Conceptually it is the counterpart of QOpenGLWindow in the Vulkan world.
+    */
+
     window.setVulkanInstance(&instance);
 
     window.resize(1024, 768);

@@ -54,10 +54,10 @@ elseif(UNIX AND NOT APPLE)
     add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 endif()
 
-# set_target_properties(${PROJNAME} PROPERTIES
-#     WIN32_EXECUTABLE TRUE
-#     MACOSX_BUNDLE TRUE
-# )   
+set_target_properties(${PROJNAME} PROPERTIES
+    WIN32_EXECUTABLE TRUE
+    MACOSX_BUNDLE TRUE
+)   
 
 # Add compiler warnings 
 if(MSVC)

@@ -8,7 +8,7 @@
 #include "vulkanwindow.h"
 #include "vulkanrenderer.h"
 
-static const bool DEBUG = false;
+static const bool DEBUG = true;
 
 int main(int argc, char *argv[]) 
 {

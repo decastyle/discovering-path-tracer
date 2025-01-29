@@ -7,7 +7,7 @@ class VulkanRenderer : public QVulkanWindowRenderer
 {
 public:
     VulkanRenderer(QVulkanWindow *w);
-    void initResources(); // The default implementation is empty.
+    void initResources() override;
     void startNextFrame() override;
 
 protected:

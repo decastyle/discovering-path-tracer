@@ -34,11 +34,31 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 #=================================#
-# GLSL to SPIR-V custom build
+# Executable
 #
-# more than one file can be given: _compile_GLSL("GLSL_mesh.vert;GLSL_mesh.frag" "GLSL_mesh.spv" GLSL_SOURCES)
-# the SPIR-V validator is fine as long as files are for different pipeline stages (entry points still need to be main())
-#_compile_GLSL(<source(s)> <target spv> <LIST where files are appended>)
+add_executable(${PROJNAME} ${SOURCE_FILES})
+
+#=================================#
+# Qt configuration
+#
+find_package(Qt6 REQUIRED COMPONENTS 
+    Core
+    Gui
+    Widgets
+    Concurrent
+)
+target_link_libraries(${PROJNAME} PRIVATE 
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Concurrent
+)
+qt_standard_project_setup()
+
+
+#=================================#
+# Vulkan binaries from VULKAN_SDK environment variable (FindVulkan.cmake)
+#
 if(WIN32)
   find_path(Vulkan_INCLUDE_DIR
     NAMES vulkan/vulkan.h
@@ -95,112 +115,68 @@ else()
     HINTS "$ENV{VULKAN_SDK}/bin")
 endif()
 
-
-UNSET(GLSL_SOURCES)
-UNSET(SPV_OUTPUT)
-file(GLOB_RECURSE GLSL_HEADER_FILES "src/shaders/*.h")
-file(GLOB_RECURSE GLSL_SOURCE_FILES "src/shaders/*.glsl")
-
-foreach(GLSL ${GLSL_SOURCE_FILES})
-    get_filename_component(FILE_NAME ${GLSL} NAME_WE)
-    message(STATUS "FILENAME: ${FILE_NAME}")
-
-    # _compile_GLSL(${GLSL} "src/shaders/${FILE_NAME}.spv" GLSL_SOURCES SPV_OUTPUT)
-    # #             ${_SOURCE} ${_OUTPUT} "-g"            ${SOURCE_LIST} ${OUTPUT_LIST}
-
-    set(_SOURCE ${GLSL})
-    set(_OUTPUT "${CMAKE_SOURCE_DIR}/src/shaders/${FILE_NAME}.spv")
-    set(_FLAGS "")
-
-    message(STATUS "_SOURCE: ${_SOURCE}")
-    message(STATUS "_OUTPUT: ${_OUTPUT}")
-
-    list(APPEND ${GLSL_SOURCES} ${_SOURCE})
-    list(APPEND ${SPV_OUTPUT} ${_OUTPUT})
-
-    if(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
-        set(_COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} ${_SOURCE} -o ${_OUTPUT})
-        message(STATUS "_COMMAND SET")
-        add_custom_command(
-            OUTPUT ${_OUTPUT}
-            COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} ${_SOURCE} -o ${_OUTPUT}
-            DEPENDS ${_SOURCE}
-            COMMENT "Compiling GLSL shader: ${_SOURCE} -> ${_OUTPUT}"
-        )
-        message(STATUS "AFTER CUSTOM COMMAND")
-    else(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
-        MESSAGE(WARNING "could not find Vulkan_GLSLANG_VALIDATOR_EXECUTABLE to compile shaders")
-    endif(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)  
-endforeach(GLSL)
-
-list(APPEND GLSL_SOURCES ${GLSL_HEADER_FILES})
-source_group("Shader Files" FILES ${GLSL_SOURCES})
-
-add_custom_target(compile_shaders DEPENDS ${_OUTPUT})
-
 #=================================#
-# Executable
+# GLSL to SPIR-V compilation on configuration step
 #
-add_executable(${PROJNAME} ${SOURCE_FILES} ${GLSL_SOURCES})
-
-#=================================#
-# Qt configuration
-#
-find_package(Qt6 REQUIRED COMPONENTS 
-    Core
-    Gui
-    Widgets
-    Concurrent
+file(GLOB_RECURSE GLSL_FILES # i can't stop lol
+    src/shaders/*.vert
+    src/shaders/*.frag
 )
-target_link_libraries(${PROJNAME} PRIVATE 
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Concurrent
-)
-qt_standard_project_setup()
 
-# #=================================#
-# # Resources (shaders)
-# #
-# set_source_files_properties("src/shaders/color_frag.spv"
-#     PROPERTIES QT_RESOURCE_ALIAS "color_frag.spv"
-# )
-# set_source_files_properties("src/shaders/color_vert.spv"
-#     PROPERTIES QT_RESOURCE_ALIAS "color_vert.spv"
-# )   
-# set(RESOURCE_FILES
-#     "src/shaders/color_frag.spv"
-#     "src/shaders/color_vert.spv"
-# )
-# qt_add_resources(${PROJNAME} "discovering-path-tracer"
-#     PREFIX
-#         "/"
-#     FILES
-#         ${RESOURCE_FILES}
-# )
+set(SPV_FILES "")
+
+foreach(GLSL_FILE IN LISTS GLSL_FILES)
+    get_filename_component(FILE_NAME ${GLSL_FILE} NAME_WE)
+    get_filename_component(FILE_DIR ${GLSL_FILE} DIRECTORY)
+    set(SPV_FILE "${CMAKE_SOURCE_DIR}/src/shaders/${FILE_NAME}.spv")
+
+    # I love you glslangValidator
+    execute_process(
+        COMMAND glslangValidator -V ${GLSL_FILE} -o ${SPV_FILE}
+        RESULT_VARIABLE COMPILE_RESULT
+        OUTPUT_VARIABLE COMPILE_OUTPUT
+        ERROR_VARIABLE COMPILE_ERROR
+    )
+
+    if(NOT COMPILE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Shader compilation failed for ${GLSL_FILE}:\n${COMPILE_ERROR}")
+    else()
+        message(STATUS "Compiled ${GLSL_FILE} -> ${SPV_FILE}")
+    endif()
+
+    list(APPEND SPV_FILES ${SPV_FILE})
+endforeach()
 
 #===================================#
 # Automatically discover shaders
 #
 file(GLOB RESOURCE_FILES "src/shaders/*.spv")
 
-# Set QT resource aliases automatically
 foreach(FILE ${RESOURCE_FILES})
     get_filename_component(FILENAME ${FILE} NAME)
     set_source_files_properties(${FILE} PROPERTIES QT_RESOURCE_ALIAS ${FILENAME})
 endforeach()
 
-# Generate QRC file dynamically
-set(QRC_FILE "${CMAKE_SOURCE_DIR}/src/main/shaders.qrc")
-configure_file("${CMAKE_SOURCE_DIR}/src/main/shaders.qrc.in" "${QRC_FILE}" @ONLY)
 
-# Add the resources to the project
+# Generate QRC file dynamically (i couldn't come up with more shitty way to do this okay)
+set(QRC_FILE "${CMAKE_SOURCE_DIR}/src/main/shaders.qrc")
+file(WRITE ${QRC_FILE} "<?xml version=\"1.0\"?>\n")
+file(APPEND ${QRC_FILE} "<!DOCTYPE RCC><RCC version=\"1.0\">\n")
+file(APPEND ${QRC_FILE} "  <qresource>\n")
+
+foreach(SHADER_FILE ${RESOURCE_FILES})
+    get_filename_component(FILE_NAME ${SHADER_FILE} NAME)
+    file(APPEND ${QRC_FILE} "    <file alias=\"${FILE_NAME}\">../shaders/${FILE_NAME}</file>\n")
+endforeach()
+
+file(APPEND ${QRC_FILE} "  </qresource>\n")
+file(APPEND ${QRC_FILE} "</RCC>\n")
+
+
 qt_add_resources(${PROJNAME} "discovering-path-tracer"
     PREFIX "/"
     FILES ${RESOURCE_FILES}
 )
-
 
 #=================================#
 # Vulkan configuration
@@ -219,7 +195,7 @@ endif()
 #=================================#
 # For convenient #include of header files
 #
-target_include_directories(${PROJNAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 #=================================#
 # Platform-specific configuration
@@ -231,6 +207,7 @@ elseif(APPLE)
 elseif(UNIX AND NOT APPLE)
     add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 endif()
+
 set_target_properties(${PROJNAME} PROPERTIES
     WIN32_EXECUTABLE FALSE 
     MACOSX_BUNDLE TRUE

@@ -1,5 +1,6 @@
+<?xml version="1.0"?>
 <!DOCTYPE RCC><RCC version="1.0">
-<qresource>
-    
-</qresource>
+  <qresource>
+    <file alias="color.spv">../shaders/color.spv</file>
+  </qresource>
 </RCC>

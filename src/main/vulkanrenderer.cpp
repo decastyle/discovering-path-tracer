@@ -12,7 +12,8 @@ void VulkanRenderer::initResources()
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(m_window->device());
 
     // Loading shaders
-    QString filename = ":/color_frag.spv";
+    
+    QString filename = ":/color.spv";
 
     VkShaderModule shaderModule;
     QFile file(filename);

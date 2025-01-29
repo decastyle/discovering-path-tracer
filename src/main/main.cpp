@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 
     window.setVulkanInstance(&instance);
 
-    window.resize(1024, 768);
+    window.resize(400, 300);
     window.show();
 
     // Worker and thread setup

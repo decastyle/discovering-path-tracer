@@ -31,6 +31,10 @@ void VulkanRenderer::initResources()
         qWarning("Failed to create shader module: %d", err);
         shaderModule = VK_NULL_HANDLE;
     }
+    else{
+        qDebug("Shaders loaded successfully!");
+    }
+    
 }
 
 void VulkanRenderer::startNextFrame()

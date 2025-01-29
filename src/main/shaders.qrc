@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE RCC><RCC version="1.0">
   <qresource>
-    <file alias="color.spv">../shaders/color.spv</file>
+    <file alias="color_frag.spv">../shaders/color_frag.spv</file>
+    <file alias="color_vert.spv">../shaders/color_vert.spv</file>
   </qresource>
 </RCC>

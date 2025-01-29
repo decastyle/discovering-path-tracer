@@ -7,15 +7,10 @@ VulkanRenderer::VulkanRenderer(QVulkanWindow *w)
 {
 }
 
-void VulkanRenderer::initResources()
+VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
 {
-    m_devFuncs = m_window->vulkanInstance()->deviceFunctions(m_window->device());
-
-    // Loading shaders
-    
-    QString filename = ":/color.spv";
-
     VkShaderModule shaderModule;
+
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning("Failed to read shader %s", qPrintable(filename));
@@ -37,8 +32,24 @@ void VulkanRenderer::initResources()
     else{
         qDebug("Shaders loaded successfully!");
     }
-    
+    return shaderModule;
 }
+
+void VulkanRenderer::initResources()
+{
+    VkDevice dev = m_window->device();
+    m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
+
+    VkShaderModule vertShaderModule = createShaderModule(QStringLiteral(":/color_vert.spv"));
+    VkShaderModule fragShaderModule = createShaderModule(QStringLiteral(":/color_frag.spv"));
+
+    if (vertShaderModule)
+        m_devFuncs->vkDestroyShaderModule(dev, vertShaderModule, nullptr);
+    if (fragShaderModule)
+        m_devFuncs->vkDestroyShaderModule(dev, fragShaderModule, nullptr);
+}
+
+
 
 void VulkanRenderer::startNextFrame()
 {

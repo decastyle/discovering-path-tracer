@@ -119,8 +119,8 @@ endif()
 # GLSL to SPIR-V compilation on configuration step
 #
 file(GLOB_RECURSE GLSL_FILES # i can't stop lol
-    src/shaders/*.vert
     src/shaders/*.frag
+    src/shaders/*.vert
 )
 
 set(SPV_FILES "")
@@ -129,6 +129,7 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
     get_filename_component(FILE_NAME ${GLSL_FILE} NAME_WE)
     get_filename_component(FILE_DIR ${GLSL_FILE} DIRECTORY)
     set(SPV_FILE "${CMAKE_SOURCE_DIR}/src/shaders/${FILE_NAME}.spv")
+    message(STATUS "${SPV_FILE}")
 
     # I love you glslangValidator
     execute_process(

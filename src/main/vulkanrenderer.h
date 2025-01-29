@@ -16,6 +16,8 @@ public:
 
     void startNextFrame() override;
 
+    VkShaderModule createShaderModule(const QString &filename);
+
 protected:
     QVulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;

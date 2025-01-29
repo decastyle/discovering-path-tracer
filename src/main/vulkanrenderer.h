@@ -8,6 +8,12 @@ class VulkanRenderer : public QVulkanWindowRenderer
 public:
     VulkanRenderer(QVulkanWindow *w);
     void initResources() override;
+
+    // void initSwapChainResources() override;
+    // void releaseSwapChainResources() override;
+    
+    // void releaseResources() override;
+
     void startNextFrame() override;
 
 protected:

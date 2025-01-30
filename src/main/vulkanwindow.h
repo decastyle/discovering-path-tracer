@@ -1,4 +1,4 @@
-#ifndef VULKANDOW_H
+#ifndef VULKANWINDOW_H
 #define VULKANWINDOW_H
 
 #include <QObject>

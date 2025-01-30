@@ -2,11 +2,12 @@
 #define VULKANRENDERER_H
 
 #include <QVulkanWindow>
+#include "vulkanwindow.h"
 
 class VulkanRenderer : public QVulkanWindowRenderer
 {
 public:
-    VulkanRenderer(QVulkanWindow *w);
+    VulkanRenderer(VulkanWindow *w);
     void initResources() override;
 
     // void initSwapChainResources() override;

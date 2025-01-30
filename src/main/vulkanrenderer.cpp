@@ -3,7 +3,7 @@
 #include <QVulkanFunctions>
 #include <QFile>
 
-VulkanRenderer::VulkanRenderer(QVulkanWindow *w)
+VulkanRenderer::VulkanRenderer(VulkanWindow *w)
     : m_window(w)
 {
 }
@@ -38,6 +38,7 @@ VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
 
 void VulkanRenderer::initResources()
 {
+    QVulkanInstance *inst = m_window->vulkanInstance();
     VkDevice dev = m_window->device();
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
@@ -48,9 +49,48 @@ void VulkanRenderer::initResources()
         m_devFuncs->vkDestroyShaderModule(dev, vertShaderModule, nullptr);
     if (fragShaderModule)
         m_devFuncs->vkDestroyShaderModule(dev, fragShaderModule, nullptr);
+
+
+    // Logs
+
+    QString info;
+    info += QString::asprintf("Number of physical devices: %d\n", int(m_window->availablePhysicalDevices().count()));
+
+    QVulkanFunctions *f = inst->functions();
+    VkPhysicalDeviceProperties props;
+    f->vkGetPhysicalDeviceProperties(m_window->physicalDevice(), &props);
+    info += QString::asprintf("Active physical device name: '%s' version %d.%d.%d\nAPI version %d.%d.%d\n",
+                              props.deviceName,
+                              VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion),
+                              VK_VERSION_PATCH(props.driverVersion),
+                              VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion),
+                              VK_VERSION_PATCH(props.apiVersion));
+
+    info += QStringLiteral("Supported instance layers:\n");
+    for (const QVulkanLayer &layer : inst->supportedLayers())
+        info += QString::asprintf("    %s v%u\n", layer.name.constData(), layer.version);
+    info += QStringLiteral("Enabled instance layers:\n");
+    for (const QByteArray &layer : inst->layers())
+        info += QString::asprintf("    %s\n", layer.constData());
+
+    info += QStringLiteral("Supported instance extensions:\n");
+    for (const QVulkanExtension &ext : inst->supportedExtensions())
+        info += QString::asprintf("    %s v%u\n", ext.name.constData(), ext.version);
+    info += QStringLiteral("Enabled instance extensions:\n");
+    for (const QByteArray &ext : inst->extensions())
+        info += QString::asprintf("    %s\n", ext.constData());
+
+    info += QString::asprintf("Color format: %u\nDepth-stencil format: %u\n",
+                              m_window->colorFormat(), m_window->depthStencilFormat());
+
+    info += QStringLiteral("Supported sample counts:");
+    const QList<int> sampleCounts = m_window->supportedSampleCounts();
+    for (int count : sampleCounts)
+        info += QLatin1Char(' ') + QString::number(count);
+    info += QLatin1Char('\n');
+
+    emit static_cast<VulkanWindow *>(m_window)->vulkanInfoReceived(info);
 }
-
-
 
 void VulkanRenderer::startNextFrame()
 {

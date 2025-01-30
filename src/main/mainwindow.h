@@ -6,6 +6,7 @@
 #include <QTabWidget>
 #include <QPlainTextEdit>
 #include <QLCDNumber>
+#include "vulkanwindow.h"
 
 class MainWindow : public QWidget
 {
@@ -19,10 +20,14 @@ public slots:
     void onFrameQueued();
 
 private:
+
     VulkanWindow *m_window;
     QTabWidget *m_infoTab;
     QPlainTextEdit *m_info;
     QLCDNumber *m_number;
+
+    QElapsedTimer timer;
+    int frameCount;
 };
 
 #endif // MAINWINDOW_H

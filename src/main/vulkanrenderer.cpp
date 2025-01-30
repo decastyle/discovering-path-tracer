@@ -1,4 +1,5 @@
 #include "vulkanrenderer.h"
+#include "vulkanwindow.h"
 #include <QVulkanFunctions>
 #include <QFile>
 
@@ -91,4 +92,6 @@ void VulkanRenderer::startNextFrame()
     Each call to this function must be followed by a call to QVulkanWindow::frameReady(). Failing to do so will stall the rendering loop. The call can also be made at a later time, after returning from this function. This means that it is possible to kick off asynchronous work, and only update the command buffer and notify QVulkanWindow when that work has finished.
     */
     m_window->requestUpdate();
+
+    emit static_cast<VulkanWindow *>(m_window)->frameQueued();
 }

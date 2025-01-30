@@ -60,59 +60,59 @@ qt_standard_project_setup()
 # Vulkan binaries from VULKAN_SDK environment variable (FindVulkan.cmake)
 #
 if(WIN32)
-  find_path(Vulkan_INCLUDE_DIR
-    NAMES vulkan/vulkan.h
-    HINTS
-      "$ENV{VULKAN_SDK}/Include"
-    )
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    find_path(Vulkan_INCLUDE_DIR
+        NAMES vulkan/vulkan.h
+        HINTS
+        "$ENV{VULKAN_SDK}/Include"
+        )
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        find_library(Vulkan_LIBRARY
+        NAMES vulkan-1
+        HINTS
+            "$ENV{VULKAN_SDK}/Lib"
+            "$ENV{VULKAN_SDK}/Bin"
+        )
+        find_program(Vulkan_GLSLC_EXECUTABLE
+        NAMES glslc
+        HINTS
+            "$ENV{VULKAN_SDK}/Bin"
+        )
+        find_program(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE
+        NAMES glslangValidator
+        HINTS
+            "$ENV{VULKAN_SDK}/Bin"
+        )
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        find_library(Vulkan_LIBRARY
+        NAMES vulkan-1
+        HINTS
+            "$ENV{VULKAN_SDK}/Lib32"
+            "$ENV{VULKAN_SDK}/Bin32"
+        )
+        find_program(Vulkan_GLSLC_EXECUTABLE
+        NAMES glslc
+        HINTS
+            "$ENV{VULKAN_SDK}/Bin32"
+        )
+        find_program(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE
+        NAMES glslangValidator
+        HINTS
+            "$ENV{VULKAN_SDK}/Bin32"
+        )
+    endif()
+    else()
+    find_path(Vulkan_INCLUDE_DIR
+        NAMES vulkan/vulkan.h
+        HINTS "$ENV{VULKAN_SDK}/include")
     find_library(Vulkan_LIBRARY
-      NAMES vulkan-1
-      HINTS
-        "$ENV{VULKAN_SDK}/Lib"
-        "$ENV{VULKAN_SDK}/Bin"
-      )
+        NAMES vulkan
+        HINTS "$ENV{VULKAN_SDK}/lib")
     find_program(Vulkan_GLSLC_EXECUTABLE
-      NAMES glslc
-      HINTS
-        "$ENV{VULKAN_SDK}/Bin"
-      )
+        NAMES glslc
+        HINTS "$ENV{VULKAN_SDK}/bin")
     find_program(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE
-      NAMES glslangValidator
-      HINTS
-        "$ENV{VULKAN_SDK}/Bin"
-      )
-  elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    find_library(Vulkan_LIBRARY
-      NAMES vulkan-1
-      HINTS
-        "$ENV{VULKAN_SDK}/Lib32"
-        "$ENV{VULKAN_SDK}/Bin32"
-      )
-    find_program(Vulkan_GLSLC_EXECUTABLE
-      NAMES glslc
-      HINTS
-        "$ENV{VULKAN_SDK}/Bin32"
-      )
-    find_program(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE
-      NAMES glslangValidator
-      HINTS
-        "$ENV{VULKAN_SDK}/Bin32"
-      )
-  endif()
-else()
-  find_path(Vulkan_INCLUDE_DIR
-    NAMES vulkan/vulkan.h
-    HINTS "$ENV{VULKAN_SDK}/include")
-  find_library(Vulkan_LIBRARY
-    NAMES vulkan
-    HINTS "$ENV{VULKAN_SDK}/lib")
-  find_program(Vulkan_GLSLC_EXECUTABLE
-    NAMES glslc
-    HINTS "$ENV{VULKAN_SDK}/bin")
-  find_program(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE
-    NAMES glslangValidator
-    HINTS "$ENV{VULKAN_SDK}/bin")
+        NAMES glslangValidator
+        HINTS "$ENV{VULKAN_SDK}/bin")
 endif()
 
 #=================================#

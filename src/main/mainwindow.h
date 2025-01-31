@@ -6,6 +6,7 @@
 #include <QTabWidget>
 #include <QPlainTextEdit>
 #include <QLCDNumber>
+#include <QCursor>
 #include "vulkanwindow.h"
 
 class MainWindow : public QWidget

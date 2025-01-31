@@ -36,9 +36,6 @@ int main(int argc, char *argv[])
     vulkanWindow->setVulkanInstance(&instance);
 
     MainWindow mainWindow(vulkanWindow);
-    
-    QObject::connect(vulkanWindow, &VulkanWindow::vulkanInfoReceived, &mainWindow, &MainWindow::onVulkanInfoReceived);
-    QObject::connect(vulkanWindow, &VulkanWindow::frameQueued, &mainWindow, &MainWindow::onFrameQueued);
 
 
     mainWindow.resize(800, 600);

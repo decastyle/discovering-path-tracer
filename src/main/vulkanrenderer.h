@@ -6,6 +6,7 @@
 
 class VulkanRenderer : public QVulkanWindowRenderer
 {
+
 public:
     VulkanRenderer(VulkanWindow *w);
     void initResources() override;
@@ -20,7 +21,7 @@ public:
 protected:
     VkShaderModule createShaderModule(const QString &filename);
 
-    QVulkanWindow *m_window;
+    VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
 
 
@@ -39,7 +40,7 @@ protected:
     QMatrix4x4 m_proj;
     float m_rotation = 0.0f;
     float m_hue = 0;
-    
+
 };
 
 #endif // VULKANRENDERER_H

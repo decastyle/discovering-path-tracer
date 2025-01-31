@@ -2,6 +2,7 @@
 #include "vulkanwindow.h"
 #include <QVulkanFunctions>
 #include <QFile>
+#include <QObject>
 
 static float vertexData[] = { // Y up, front = CCW
      0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
@@ -553,12 +554,18 @@ void VulkanRenderer::startNextFrame()
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
     QMatrix4x4 m = m_proj;
-    m.rotate(m_rotation, 0, 1, 0);
+
+    float sensitivity = 1.0f;  
+    float angleY = m_window->m_delta.x() * sensitivity;
+    float angleX = m_window->m_delta.y() * sensitivity;
+    m.rotate(angleY, 0, 1, 0);
+    m.rotate(angleX, 1, 0, 0);
+
     memcpy(p, m.constData(), 16 * sizeof(float));
     m_devFuncs->vkUnmapMemory(dev, m_bufMem);
 
     // Not exactly a real animation system, just advance on every frame for now.
-    m_rotation += 10.0f;
+    // m_rotation += 1.0f;
 
     m_devFuncs->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     m_devFuncs->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,

@@ -14,6 +14,9 @@
 MainWindow::MainWindow(VulkanWindow *w)
     : m_window(w)
 {
+    connect(m_window, &VulkanWindow::vulkanInfoReceived, this, &MainWindow::onVulkanInfoReceived);
+    connect(m_window, &VulkanWindow::frameQueued, this, &MainWindow::onFrameQueued);
+
     timer.start();
     
     QWidget *wrapper = QWidget::createWindowContainer(w);

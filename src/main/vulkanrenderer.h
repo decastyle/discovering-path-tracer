@@ -24,7 +24,6 @@ protected:
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
 
-
     VkDeviceMemory m_bufMem = VK_NULL_HANDLE;
     VkBuffer m_buf = VK_NULL_HANDLE;
     VkDescriptorBufferInfo m_uniformBufInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
@@ -37,9 +36,13 @@ protected:
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
-    QMatrix4x4 m_proj;
-    float m_rotation = 0.0f;
-    float m_hue = 0;
+    QMatrix4x4 m_proj;          // TODO: Create camera Q_OBJECT and link camera parameters (translate, FOV, rotation) to m_proj
+    // Connect mouse wheel to zoom, GUI scroll to FOV, and rotate camera only when Alt is pressed
+    // m_proj is used to drive rasterization view
+    // In case of raytracing, camera parameters will be used to define ray's spawn point
+
+    float m_rotation = 0.0f;    // Not used
+    float m_hue = 0;            // Not used
 
 };
 

@@ -8,6 +8,10 @@ static float vertexData[] = { // Y up, front = CCW
      0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
     -0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
      0.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
+
+     1.0f,   0.5f,   1.0f, 0.0f, 0.0f,
+     0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
+     1.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
 };
 
 static const int UNIFORM_DATA_SIZE = 16 * sizeof(float);
@@ -19,7 +23,17 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 
 VulkanRenderer::VulkanRenderer(VulkanWindow *w)
     : m_window(w)
-{
+{   
+    const QList<int> counts = w->supportedSampleCounts();
+
+    qDebug() << "Supported sample counts:" << counts;
+    for (int s = 16; s >= 4; s /= 2) {
+        if (counts.contains(s)) {
+            qDebug("Requesting sample count %d", s);
+            m_window->setSampleCount(s);
+            break;
+        }
+    }
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
@@ -59,7 +73,10 @@ void VulkanRenderer::initResources()
     VkResult result;
     memset(&result, 0, sizeof(result));
 
-    const int concurrentFrameCount = m_window->concurrentFrameCount();
+    const int concurrentFrameCount = m_window->concurrentFrameCount(); 
+    // Returns the number of frames that can be potentially active at the same time.
+    qDebug() << concurrentFrameCount;
+    
     const VkPhysicalDeviceLimits *pdevLimits = &m_window->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
     qDebug("uniform buffer offset alignment is %u", (uint) uniAlign);
@@ -247,20 +264,20 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineRasterizationStateCreateInfo rasterizerState;
-    memset(&rasterizerState, 0, sizeof(rasterizerState));
-    rasterizerState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizerState.depthClampEnable = VK_FALSE;
-    rasterizerState.rasterizerDiscardEnable = VK_FALSE;
-    rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizerState.lineWidth = 1.0f;
-    rasterizerState.cullMode = VK_CULL_MODE_NONE;
-    rasterizerState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    VkPipelineRasterizationStateCreateInfo rasterizationState;
+    memset(&rasterizationState, 0, sizeof(rasterizationState));
+    rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizationState.depthClampEnable = VK_FALSE;
+    rasterizationState.rasterizerDiscardEnable = VK_FALSE;
+    rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizationState.lineWidth = 1.0f;
+    rasterizationState.cullMode = VK_CULL_MODE_NONE;
+    rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
-    rasterizerState.depthBiasEnable = VK_FALSE;
-    rasterizerState.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizerState.depthBiasClamp = 0.0f; // Optional
-    rasterizerState.depthBiasSlopeFactor = 0.0f; // Optional
+    rasterizationState.depthBiasEnable = VK_FALSE;
+    rasterizationState.depthBiasConstantFactor = 0.0f; // Optional
+    rasterizationState.depthBiasClamp = 0.0f; // Optional
+    rasterizationState.depthBiasSlopeFactor = 0.0f; // Optional
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline multisample state
@@ -401,7 +418,7 @@ void VulkanRenderer::initResources()
     pipelineInfo.pVertexInputState = &vertexInputState;
     pipelineInfo.pInputAssemblyState = &inputAssemblyState;
     pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizerState;
+    pipelineInfo.pRasterizationState = &rasterizationState;
     pipelineInfo.pMultisampleState = &multisampleState;
     pipelineInfo.pDepthStencilState = &depthStencilState;
     pipelineInfo.pColorBlendState = &colorBlendState;
@@ -472,7 +489,7 @@ void VulkanRenderer::initSwapChainResources()
     // Projection matrix
     m_proj = m_window->clipCorrectionMatrix(); // adjust for Vulkan-OpenGL clip space differences
     const QSize sz = m_window->swapChainImageSize();
-    m_proj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
+    m_proj.perspective(90.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
     m_proj.translate(0, 0, -5);
 }
 
@@ -587,7 +604,7 @@ void VulkanRenderer::startNextFrame()
     scissor.extent.height = viewport.height;
     m_devFuncs->vkCmdSetScissor(cb, 0, 1, &scissor);
 
-    m_devFuncs->vkCmdDraw(cb, 3, 1, 0, 0);
+    m_devFuncs->vkCmdDraw(cb, 6, 1, 0, 0);
 
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
 

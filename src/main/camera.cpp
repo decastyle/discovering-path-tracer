@@ -8,6 +8,10 @@ Camera::Camera(VulkanWindow *w) : m_window(w)
     m_radius = 5.0f;  
     m_yaw = 0.0f;
     m_pitch = 0.0f;
+
+    QVector3D offset(0, 0, m_radius);
+    m_cameraPos = m_rotation.rotatedVector(offset);
+    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
     
     // updateProjection();
 

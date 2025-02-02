@@ -25,6 +25,8 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 VulkanRenderer::VulkanRenderer(VulkanWindow *w)
     : m_window(w)
 {   
+    m_helper = new VulkanRendererHelper();
+
     const QList<int> counts = w->supportedSampleCounts();
 
     qDebug() << "Supported sample counts:" << counts;
@@ -486,11 +488,7 @@ void VulkanRenderer::initSwapChainResources()
 {
     qDebug("initSwapChainResources");
 
-    // // Projection matrix
-    // m_proj = m_window->clipCorrectionMatrix(); // adjust for Vulkan-OpenGL clip space differences
-    // const QSize sz = m_window->swapChainImageSize();
-    // m_proj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
-    // m_proj.translate(0, 0, -5);
+    emit m_helper->updateSwapChain();
 }
 
 void VulkanRenderer::releaseSwapChainResources()

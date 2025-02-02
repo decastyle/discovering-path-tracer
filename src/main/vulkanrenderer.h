@@ -1,14 +1,25 @@
 #ifndef VULKANRENDERER_H
 #define VULKANRENDERER_H
 
+#include <QObject>
 #include <QVulkanWindow>
 #include "vulkanwindow.h"
 
+class VulkanWindow;
+
+class VulkanRendererHelper : public QObject
+{
+    Q_OBJECT
+
+signals:
+    void updateSwapChain();
+};
+
 class VulkanRenderer : public QVulkanWindowRenderer
 {
-
 public:
     VulkanRenderer(VulkanWindow *w);
+
     void initResources() override;
 
     void initSwapChainResources() override;
@@ -17,6 +28,8 @@ public:
     void releaseResources() override;
 
     void startNextFrame() override;
+
+    VulkanRendererHelper *m_helper;
 
 protected:
     VkShaderModule createShaderModule(const QString &filename);
@@ -36,14 +49,9 @@ protected:
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
-    QMatrix4x4 m_proj;          // TODO: Create camera Q_OBJECT and link camera parameters (translate, FOV, rotation) to m_proj
-    // Connect mouse wheel to zoom, GUI scroll to FOV, and rotate camera only when Alt is pressed
-    // m_proj is used to drive rasterization view
-    // In case of raytracing, camera parameters will be used to define ray's spawn point
+    QMatrix4x4 m_proj;
 
-    float m_rotation = 0.0f;    // Not used
-    float m_hue = 0;            // Not used
-
+    
 };
 
 #endif // VULKANRENDERER_H

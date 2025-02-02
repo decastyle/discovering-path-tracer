@@ -27,8 +27,8 @@ private:
     QPlainTextEdit *m_info;
     QLCDNumber *m_number;
 
-    QElapsedTimer timer;
-    int frameCount;
+    QElapsedTimer timer{};
+    int frameCount{};
 };
 
 #endif // MAINWINDOW_H

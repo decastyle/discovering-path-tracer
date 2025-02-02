@@ -9,30 +9,30 @@ VulkanWindow::VulkanWindow()
 {
     QWindow::setCursor(Qt::OpenHandCursor);
     m_camera = new Camera(this);
-    QObject::connect(this, &VulkanWindow::cameraAxisUpdate, m_camera, &Camera::onCameraAxisUpdate);
     QObject::connect(this, &VulkanWindow::cameraViewUpdate, m_camera, &Camera::onCameraViewUpdate);
 }
 
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
-    return new VulkanRenderer(this);
+    m_renderer = new VulkanRenderer(this);
+
+    QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
+
+    return m_renderer;
+    
 }
 
-Camera* VulkanWindow::getCamera()
+Camera *VulkanWindow::getCamera()
 {
     return m_camera;
 }
-
 
 void VulkanWindow::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) 
     {
         m_lastCursorPos = event->pos();  
-        // qDebug() << m_lastCursorPos;
         QWindow::setCursor(Qt::ClosedHandCursor);
-
-        emit cameraAxisUpdate();
     }
 }
 
@@ -42,8 +42,6 @@ void VulkanWindow::mouseMoveEvent(QMouseEvent *event)
     {  
         m_delta = event->pos() - m_lastCursorPos;
         m_lastCursorPos = event->pos(); 
-
-        // qDebug() << m_delta;
         
         emit cameraViewUpdate(m_delta);
     }

@@ -20,26 +20,22 @@ public:
 public slots:
     void onCameraAxisUpdate();
     void onCameraViewUpdate(QPoint m_delta);
+    void onUpdateSwapChain();
 
 private:
     void updateProjection();
     VulkanWindow *m_window;
 
-    QVector3D m_originPos{0.0f, 0.0f, 0.0f}; // Triangle is at the origin
-    QVector3D m_originUp{0.0f, 1.0f, 0.0f};  // World up
-    QVector3D m_originRight{};   
-    QVector3D m_originForward{};
-
-    QVector3D m_cameraSpawnPos{};
     QVector3D m_cameraPos{};    
-    QVector3D m_cameraRot{};
 
-    QMatrix4x4 m_rotation{};
+    QQuaternion m_rotation{};
     QMatrix4x4 m_proj{}; 
     QMatrix4x4 m_updatedMatrix{};
 
     float m_sensitivity;
     float m_fov;      
+    float m_radius;
+    float m_yaw, m_pitch;
     
     
     // TODO: Create camera Q_OBJECT and link camera parameters (translate, FOV, rotation) to m_proj

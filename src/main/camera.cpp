@@ -30,23 +30,6 @@ void Camera::updateProjection() {
 
 void Camera::onCameraAxisUpdate()
 {
-    m_cameraPos = m_rotation.map(m_cameraSpawnPos); 
-
-    qDebug() << "m_cameraPos: " << m_cameraPos;
-
-    m_originForward = (m_cameraPos - m_originPos).normalized();
-
-    m_originRight = QVector3D::crossProduct(m_originForward, m_originUp).normalized();
-
-    m_originUp = QVector3D::crossProduct(m_originRight, m_originForward).normalized();
-
-    qDebug() << "m_originForward: " << m_originForward;
-    qDebug() << "m_originRight: " << m_originRight;
-    qDebug() << "m_originUp: " << m_originUp;
-}
-
-void Camera::onCameraViewUpdate(QPoint m_delta)
-{
     // m_cameraPos = m_rotation.map(m_cameraSpawnPos); 
 
     // qDebug() << "m_cameraPos: " << m_cameraPos;
@@ -54,18 +37,39 @@ void Camera::onCameraViewUpdate(QPoint m_delta)
     // m_originForward = (m_cameraPos - m_originPos).normalized();
 
     // m_originRight = QVector3D::crossProduct(m_originForward, m_originUp).normalized();
+    // m_originRight = QVector3D(m_originRight.x(), 0, m_originRight.z()).normalized();
 
-    // m_originUp = QVector3D::crossProduct(m_originRight, m_originForward).normalized();
+    // // m_originUp = QVector3D::crossProduct(m_originRight, m_originForward).normalized();
+    // m_originUp = QVector3D(0, 1, 0);
 
     // qDebug() << "m_originForward: " << m_originForward;
     // qDebug() << "m_originRight: " << m_originRight;
     // qDebug() << "m_originUp: " << m_originUp;
+}
+
+void Camera::onCameraViewUpdate(QPoint m_delta)
+{
+    m_cameraPos = m_rotation.map(m_cameraSpawnPos); 
+
+    qDebug() << "m_cameraPos: " << m_cameraPos;
+
+    m_originForward = (m_cameraPos - m_originPos).normalized();
+
+    m_originRight = QVector3D::crossProduct(m_originForward, m_originUp).normalized();
+    m_originRight = QVector3D(m_originRight.x(), 0, m_originRight.z()).normalized();
+
+    // m_originUp = QVector3D::crossProduct(m_originRight, m_originForward).normalized();
+    m_originUp = QVector3D(0, 1, 0);
+
+    qDebug() << "m_originForward: " << m_originForward;
+    qDebug() << "m_originRight: " << m_originRight;
+    qDebug() << "m_originUp: " << m_originUp;
 
     float angleY = m_delta.x() * m_sensitivity;
     float angleX = m_delta.y() * m_sensitivity;
  
     m_rotation.rotate(angleY, m_originUp);
-    m_rotation.rotate(angleX, m_originRight.x(), m_originRight.y(), -m_originRight.z());
+    m_rotation.rotate(angleX, m_originRight.x(), 0, -m_originRight.z());
 
     m_updatedMatrix = m_proj * m_rotation;
 }

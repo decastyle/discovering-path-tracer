@@ -3,6 +3,7 @@
 #include <QVulkanFunctions>
 #include <QFile>
 #include <QObject>
+#include "camera.h"
 
 static float vertexData[] = { // Y up, front = CCW
      0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
@@ -481,16 +482,15 @@ void VulkanRenderer::initResources()
     emit static_cast<VulkanWindow *>(m_window)->vulkanInfoReceived(info);
 }
 
-
 void VulkanRenderer::initSwapChainResources()
 {
     qDebug("initSwapChainResources");
 
-    // Projection matrix
-    m_proj = m_window->clipCorrectionMatrix(); // adjust for Vulkan-OpenGL clip space differences
-    const QSize sz = m_window->swapChainImageSize();
-    m_proj.perspective(90.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
-    m_proj.translate(0, 0, -5);
+    // // Projection matrix
+    // m_proj = m_window->clipCorrectionMatrix(); // adjust for Vulkan-OpenGL clip space differences
+    // const QSize sz = m_window->swapChainImageSize();
+    // m_proj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
+    // m_proj.translate(0, 0, -5);
 }
 
 void VulkanRenderer::releaseSwapChainResources()
@@ -543,8 +543,13 @@ void VulkanRenderer::releaseResources()
 void VulkanRenderer::startNextFrame()
 {
     VkDevice dev = m_window->device();
-    VkCommandBuffer cb = m_window->currentCommandBuffer();
+
+    // m_proj = m_window->clipCorrectionMatrix();
     const QSize sz = m_window->swapChainImageSize();
+    // m_proj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
+    // m_proj.translate(0, 0, -5);
+
+    VkCommandBuffer cb = m_window->currentCommandBuffer();
 
     VkClearColorValue clearColor = {{ 0, 0, 0, 1 }};
     VkClearDepthStencilValue clearDS = { 1, 0 };
@@ -565,24 +570,26 @@ void VulkanRenderer::startNextFrame()
     VkCommandBuffer cmdBuf = m_window->currentCommandBuffer();
     m_devFuncs->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    /////////////////////////////////////////////////////////////////////
+    // Map projection matrix
+    /////////////////////////////////////////////////////////////////////
+    
     quint8 *p;
     VkResult err = m_devFuncs->vkMapMemory(dev, m_bufMem, m_uniformBufInfo[m_window->currentFrame()].offset,
             UNIFORM_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
-    QMatrix4x4 m = m_proj;
 
-    float sensitivity = 1.0f;  
-    float angleY = m_window->m_delta.x() * sensitivity;
-    float angleX = m_window->m_delta.y() * sensitivity;
-    m.rotate(angleY, 0, 1, 0);
-    m.rotate(angleX, 1, 0, 0);
+    Camera *camera = m_window->getCamera();
+    m_proj = camera->getProj();
+    QMatrix4x4 m = m_proj;
 
     memcpy(p, m.constData(), 16 * sizeof(float));
     m_devFuncs->vkUnmapMemory(dev, m_bufMem);
 
-    // Not exactly a real animation system, just advance on every frame for now.
-    // m_rotation += 1.0f;
+    /////////////////////////////////////////////////////////////////////
+    // Bind pipeline
+    /////////////////////////////////////////////////////////////////////
 
     m_devFuncs->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     m_devFuncs->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,

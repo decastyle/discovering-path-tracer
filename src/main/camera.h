@@ -3,22 +3,42 @@
 
 #include <QObject>
 #include <QVector3D>
+#include <QVulkanWindow>
+#include "vulkanwindow.h"
 
-class Camera
+class VulkanWindow;
+
+class Camera : public QObject
 {
     Q_OBJECT
 
 public:
-    Camera();
+    Camera(VulkanWindow *w);
+
+    QMatrix4x4 getProj();
 
 public slots:
-    void onMouseClicked();
+    void onCameraAxisUpdate();
+    void onCameraViewUpdate(QPoint m_delta);
 
 private:
-    QVector3D m_rotationAxis{};   
+    void updateProjection();
+    VulkanWindow *m_window;
 
-    QVector3D m_translate{};    
-    QVector3D m_rotation{};
+    QVector3D m_originPos{0.0f, 0.0f, 0.0f}; // Triangle is at the origin
+    QVector3D m_originUp{0.0f, 1.0f, 0.0f};  // World up
+    QVector3D m_originRight{};   
+    QVector3D m_originForward{};
+
+    QVector3D m_cameraSpawnPos{};
+    QVector3D m_cameraPos{};    
+    QVector3D m_cameraRot{};
+
+    QMatrix4x4 m_rotation{};
+    QMatrix4x4 m_proj{}; 
+    QMatrix4x4 m_updatedMatrix{};
+
+    float m_sensitivity;
     float m_fov;      
     
     
@@ -28,4 +48,4 @@ private:
     // In case of raytracing, camera parameters will be used to define ray's spawn point
 };
 
-#endif // VULKANRENDERER_H
+#endif // CAMERA_H

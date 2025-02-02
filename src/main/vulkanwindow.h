@@ -6,6 +6,9 @@
 #include <QString>
 #include <QWindow>
 #include <QCursor>
+#include "camera.h"
+
+class Camera;
 
 class VulkanWindow : public QVulkanWindow
 {
@@ -13,19 +16,27 @@ class VulkanWindow : public QVulkanWindow
 
 public:
     VulkanWindow();
+    
     QVulkanWindowRenderer *createRenderer() override;
-    QPoint m_delta{};
+
+    Camera *getCamera();
 
 signals:
     void vulkanInfoReceived(const QString &text);
     void frameQueued();
-    
+    void cameraAxisUpdate();
+    void cameraViewUpdate(QPoint m_delta);
+
 protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
+    QPoint m_delta{};
+
+    Camera *m_camera;
+    
     QPoint m_lastCursorPos;
 };
 

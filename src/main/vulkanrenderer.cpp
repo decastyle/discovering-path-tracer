@@ -5,17 +5,75 @@
 #include <QObject>
 #include "camera.h"
 
-static float vertexData[] = { // Y up, front = CCW
-     0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
-    -0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
-     0.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
+// static float vertexData[] = { // Y up, front = CCW
+//      0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
+//     -0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
+//      0.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
 
-     1.0f,   0.5f,   1.0f, 0.0f, 0.0f,
-     0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
-     1.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
+//      1.0f,   0.5f,   1.0f, 0.0f, 0.0f,
+//      0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
+//      1.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
+// };
+
+static float vertexData[] = { // TODO: Include .obj loader and a button "Load .obj" to load vertexData
+    // Front face (Z = 1.0f)
+    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Bottom-left
+     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Bottom-right
+     0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Top-right
+
+     0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Top-right
+    -0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Top-left
+    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Bottom-left
+
+    // Back face (Z = -1.0f)
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-left
+     0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-right
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
+
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
+    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-left
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-left
+
+    // Left face (X = -1.0f)
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-front
+    -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-back
+    -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Top-back
+
+    -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Top-back
+    -0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Top-front
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-front
+
+    // Right face (X = 1.0f)
+     0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-front
+     0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-back
+     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Top-back
+
+     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Top-back
+     0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Top-front
+     0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-front
+
+    // Top face (Y = 1.0f)
+    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-left
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-right
+     0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-right
+
+     0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-right
+    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-left
+    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-left
+
+    // Bottom face (Y = -1.0f)
+    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f,  // Back-left
+     0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f,  // Back-right
+     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f,  // Front-right
+
+     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f,  // Front-right
+    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f,  // Front-left
+    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f   // Back-left
 };
 
-static const int UNIFORM_DATA_SIZE = 16 * sizeof(float);
+
+
+static const int UNIFORM_DATA_SIZE = 16 * sizeof(float); 
 
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
@@ -124,7 +182,9 @@ void VulkanRenderer::initResources()
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
     memcpy(p, vertexData, sizeof(vertexData));
+
     QMatrix4x4 ident;
+
     memset(m_uniformBufInfo, 0, sizeof(m_uniformBufInfo));
     for (int i = 0; i < concurrentFrameCount; ++i) {
         const VkDeviceSize offset = vertexAllocSize + i * uniformAllocSize;
@@ -199,21 +259,21 @@ void VulkanRenderer::initResources()
 
     VkVertexInputBindingDescription vertexBindingDesc = {
         0, // binding
-        5 * sizeof(float),
+        6 * sizeof(float),
         VK_VERTEX_INPUT_RATE_VERTEX
     };
     VkVertexInputAttributeDescription vertexAttrDesc[] = {
         { // position
             0, // location
             0, // binding
-            VK_FORMAT_R32G32_SFLOAT,
+            VK_FORMAT_R32G32B32_SFLOAT,
             0
         },
         { // color
             1,
             0,
             VK_FORMAT_R32G32B32_SFLOAT,
-            2 * sizeof(float)
+            3 * sizeof(float)
         }
     };
 
@@ -542,14 +602,11 @@ void VulkanRenderer::startNextFrame()
 {
     VkDevice dev = m_window->device();
 
-    // m_proj = m_window->clipCorrectionMatrix();
     const QSize sz = m_window->swapChainImageSize();
-    // m_proj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
-    // m_proj.translate(0, 0, -5);
 
     VkCommandBuffer cb = m_window->currentCommandBuffer();
 
-    VkClearColorValue clearColor = {{ 0, 0, 0, 1 }};
+    VkClearColorValue clearColor = {{ 0.3, 0.3, 0.3, 1 }};
     VkClearDepthStencilValue clearDS = { 1, 0 };
     VkClearValue clearValues[3];
     memset(clearValues, 0, sizeof(clearValues));
@@ -565,6 +622,8 @@ void VulkanRenderer::startNextFrame()
     rpBeginInfo.renderArea.extent.height = sz.height();
     rpBeginInfo.clearValueCount = m_window->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3 : 2;
     rpBeginInfo.pClearValues = clearValues;
+
+
     VkCommandBuffer cmdBuf = m_window->currentCommandBuffer();
     m_devFuncs->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -609,7 +668,10 @@ void VulkanRenderer::startNextFrame()
     scissor.extent.height = viewport.height;
     m_devFuncs->vkCmdSetScissor(cb, 0, 1, &scissor);
 
-    m_devFuncs->vkCmdDraw(cb, 6, 1, 0, 0);
+
+    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 6;  // Each vertex has 6 elements (x, y, z, r, g, b)
+
+    m_devFuncs->vkCmdDraw(cb, vertexCount, 1, 0, 0);
 
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
 

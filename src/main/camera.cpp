@@ -55,8 +55,22 @@ void Camera::onCameraViewUpdate(QPoint m_delta)
     QVector3D offset(0, 0, m_radius);
     m_cameraPos = m_rotation.rotatedVector(offset);
 
+    QVector3D cameraUp(0, 1, 0);
+
+    // if((-m_pitch < 90 && -m_pitch > -90) || (-m_pitch < -270 && -m_pitch > 270))
+    // {
+    //     cameraUp = QVector3D(0, 1, 0); 
+    //     qDebug() << "Positive: " << -m_pitch;
+    // }
+    // else
+    // {
+    //     cameraUp = QVector3D(0, -1, 0); 
+    //     qDebug() << "Negative: " << -m_pitch;;
+    // }
+    // m_pitch = fmod(m_pitch, 360);
+
     m_updatedMatrix.setToIdentity();
-    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
+    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), cameraUp);
 }
 
 QMatrix4x4 Camera::getProj()

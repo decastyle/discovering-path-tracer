@@ -50,8 +50,6 @@ protected:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
     QMatrix4x4 m_proj;
-
-    
 };
 
 #endif // VULKANRENDERER_H

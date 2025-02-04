@@ -32,3 +32,5 @@ private:
 };
 
 #endif // MAINWINDOW_H
+
+// TODO: Make GUI look good

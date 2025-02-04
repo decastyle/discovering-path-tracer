@@ -27,7 +27,6 @@ public:
 signals:
     void vulkanInfoReceived(const QString &text);
     void frameQueued();
-
     void cameraViewUpdate(QPoint m_delta);
 
 protected:

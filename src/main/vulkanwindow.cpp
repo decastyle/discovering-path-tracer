@@ -75,10 +75,14 @@ void VulkanWindow::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
-    m_delta = event->pos() - m_lastCursorPos;
-    m_lastCursorPos = event->pos();
+    if (event->buttons() & Qt::LeftButton) 
+    {
+        m_delta = event->pos() - m_lastCursorPos;
+        m_lastCursorPos = event->pos();
+        emit cameraViewUpdate(m_delta);
+    }
 
-    emit cameraViewUpdate(m_delta);
+    
 }
 
 

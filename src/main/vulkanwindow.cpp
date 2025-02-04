@@ -38,14 +38,50 @@ void VulkanWindow::mousePressEvent(QMouseEvent *event)
 
 void VulkanWindow::mouseMoveEvent(QMouseEvent *event)
 {
-    if (event->buttons() & Qt::LeftButton) 
-    {  
-        m_delta = event->pos() - m_lastCursorPos;
-        m_lastCursorPos = event->pos(); 
-        
-        emit cameraViewUpdate(m_delta);
+    static bool justWarped = false;
+
+    if (justWarped) {
+        justWarped = false;
+        return;
     }
+
+    QPoint globalPos = mapToGlobal(event->pos());
+    QRect windowRect = this->geometry();
+    QPoint topLeft = mapToGlobal(QPoint(0, 0));
+    int width = windowRect.width();
+    int height = windowRect.height();
+
+    QPoint newPos = globalPos;  // Default, no change
+
+    // Check if we need to wrap
+    if (globalPos.x() >= topLeft.x() + width) {
+        newPos.setX(topLeft.x());  // Wrap to left
+        justWarped = true;
+    } else if (globalPos.x() < topLeft.x()) {
+        newPos.setX(topLeft.x() + width - 1);  // Wrap to right
+        justWarped = true;
+    }
+    if (globalPos.y() >= topLeft.y() + height) {
+        newPos.setY(topLeft.y());  // Wrap to top
+        justWarped = true;
+    } else if (globalPos.y() < topLeft.y()) {
+        newPos.setY(topLeft.y() + height - 1);  // Wrap to bottom
+        justWarped = true;
+    }
+
+    if (justWarped) {
+        QCursor::setPos(newPos);
+        m_lastCursorPos = mapFromGlobal(newPos);  // **Update only after warp**
+        return;
+    }
+
+    m_delta = event->pos() - m_lastCursorPos;
+    m_lastCursorPos = event->pos();
+
+    emit cameraViewUpdate(m_delta);
 }
+
+
 
 void VulkanWindow::mouseReleaseEvent(QMouseEvent *event)
 {

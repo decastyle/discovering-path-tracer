@@ -5,15 +5,9 @@
 #include <QObject>
 #include "camera.h"
 
-// static float vertexData[] = { // Y up, front = CCW
-//      0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
-//     -0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
-//      0.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
+// TODO: create two vertex buffers for each concurrent frame to support animation, update two uniform buffers with camera and light position, and a staging buffer to transfer heavy vertex data to vertex buffers to reduce overhead, update descriptor set layout and vertex input state
 
-//      1.0f,   0.5f,   1.0f, 0.0f, 0.0f,
-//      0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
-//      1.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
-// };
+
 
 static float vertexData[] = { // TODO: Include .obj loader and a button "Load .obj" to load vertexData
     // Front face (Z = 1.0f)
@@ -27,13 +21,13 @@ static float vertexData[] = { // TODO: Include .obj loader and a button "Load .o
 
     // Back face (Z = -1.0f)
     -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-left
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
      0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-right
-     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
 
      0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
-    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-left
     -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-left
-
+    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-left
+    
     // Left face (X = -1.0f)
     -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-front
     -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-back
@@ -45,21 +39,22 @@ static float vertexData[] = { // TODO: Include .obj loader and a button "Load .o
 
     // Right face (X = 1.0f)
      0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-front
-     0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-back
      0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Top-back
+     0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-back
 
      0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Top-back
-     0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Top-front
      0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-front
+     0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Top-front
+     
 
     // Top face (Y = 1.0f)
     -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-left
-     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-right
      0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-right
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-right
 
      0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-right
-    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-left
     -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-left
+    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-left
 
     // Bottom face (Y = -1.0f)
     -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f,  // Back-left
@@ -73,7 +68,8 @@ static float vertexData[] = { // TODO: Include .obj loader and a button "Load .o
 
 
 
-static const int UNIFORM_DATA_SIZE = 16 * sizeof(float); 
+static const int UNIFORM_MATRIX_DATA_SIZE = 16 * sizeof(float); 
+static const int UNIFORM_VECTOR_DATA_SIZE = 3 * sizeof(float); 
 
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
@@ -143,6 +139,13 @@ void VulkanRenderer::initResources()
     qDebug("uniform buffer offset alignment is %u", (uint) uniAlign);
 
     /////////////////////////////////////////////////////////////////////
+    // Create buffers (different layout)
+    // 
+    /////////////////////////////////////////////////////////////////////
+
+
+
+    /////////////////////////////////////////////////////////////////////
     // Create buffers
     /////////////////////////////////////////////////////////////////////
 
@@ -151,9 +154,9 @@ void VulkanRenderer::initResources()
     bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     // Our internal layout is vertex, uniform, uniform, ... with each uniform buffer start offset aligned to uniAlign.
     const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
-    const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
+    const VkDeviceSize uniformAllocSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign);
     bufInfo.size = vertexAllocSize + concurrentFrameCount * uniformAllocSize;
-    bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; 
 
     VkResult err = m_devFuncs->vkCreateBuffer(dev, &bufInfo, nullptr, &m_buf);
     if (err != VK_SUCCESS)
@@ -334,8 +337,8 @@ void VulkanRenderer::initResources()
     rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationState.lineWidth = 1.0f;
-    rasterizationState.cullMode = VK_CULL_MODE_NONE;
-    rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     rasterizationState.depthBiasEnable = VK_FALSE;
     rasterizationState.depthBiasConstantFactor = 0.0f; // Optional
@@ -633,7 +636,7 @@ void VulkanRenderer::startNextFrame()
     
     quint8 *p;
     VkResult err = m_devFuncs->vkMapMemory(dev, m_bufMem, m_uniformBufInfo[m_window->currentFrame()].offset,
-            UNIFORM_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
+            UNIFORM_MATRIX_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
 

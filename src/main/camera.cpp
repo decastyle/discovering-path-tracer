@@ -49,7 +49,7 @@ void Camera::onCameraViewUpdate(QPoint m_delta)
     m_updatedMatrix.setToIdentity();
     m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), cameraUp);
 
-    qDebug() << cameraUp;
+    // qDebug() << cameraUp;
 
     if(cameraUp.y() < 0)
     {

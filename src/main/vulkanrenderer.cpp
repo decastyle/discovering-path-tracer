@@ -5,61 +5,62 @@
 #include <QObject>
 #include "camera.h"
 
-static float vertexData[] = { // TODO: Include .obj loader and a button "Load .obj" to load vertexData
-    // Front face (Z = 1.0f)
-    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Bottom-left
-     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Bottom-right
-     0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Top-right
+static float vertexData[] = { // TODO: Include .obj loader and a button "Load .obj" to load vertexData (update vertex input locations)
+    // Position (x, y, z)  // Normal (nx, ny, nz) // Color (r, g, b)
 
-     0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Top-right
-    -0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Top-left
-    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,  // Bottom-left
+    // Front face (Z = 1.0f)
+    -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+     0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+     0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+
+     0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+    -0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+    -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
 
     // Back face (Z = -1.0f)
-    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-left
-     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
-     0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-right
+    -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+     0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+     0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
 
-     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-right
-    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Bottom-left
-    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // Top-left
-    
+     0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+    -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+    -0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+
     // Left face (X = -1.0f)
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-front
-    -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-back
-    -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Top-back
+    -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,  
+    -0.5f, -0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,  
+    -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
 
-    -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  // Top-back
-    -0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Top-front
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // Bottom-front
+    -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
 
     // Right face (X = 1.0f)
-     0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-front
-     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Top-back
-     0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-back
+     0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
 
-     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 0.0f,  // Top-back
-     0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Bottom-front
-     0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // Top-front
-     
+     0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
 
     // Top face (Y = 1.0f)
-    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-left
-     0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-right
-     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-right
+    -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
 
-     0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-right
-    -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f,  // Back-left
-    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // Front-left
+     0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
 
     // Bottom face (Y = -1.0f)
-    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f,  // Back-left
-     0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f,  // Back-right
-     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f,  // Front-right
+    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
 
-     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f,  // Front-right
-    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f,  // Front-left
-    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f   // Back-left
+     0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
 };
 
 static const int UNIFORM_MATRIX_DATA_SIZE = 16 * sizeof(float);
@@ -319,7 +320,7 @@ void VulkanRenderer::initResources()
 
     VkVertexInputBindingDescription vertexBindingDesc = {
         .binding = 0,
-        .stride = 6 * sizeof(float),
+        .stride = 9 * sizeof(float),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
@@ -330,11 +331,17 @@ void VulkanRenderer::initResources()
             .format = VK_FORMAT_R32G32B32_SFLOAT,
             .offset = 0
         },
-        { // color
+        { // normal
             .location = 1,
             .binding = 0,
             .format = VK_FORMAT_R32G32B32_SFLOAT,
             .offset = 3 * sizeof(float)
+        },
+        { // color
+            .location = 2,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = 6 * sizeof(float)
         }
     };
 
@@ -344,7 +351,7 @@ void VulkanRenderer::initResources()
         .flags = 0,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &vertexBindingDesc,
-        .vertexAttributeDescriptionCount = 2,
+        .vertexAttributeDescriptionCount = 3,
         .pVertexAttributeDescriptions = vertexAttrDesc
     };
 
@@ -874,7 +881,7 @@ void VulkanRenderer::startNextFrame()
     };
     m_devFuncs->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 6;  // Each vertex has 6 elements (x, y, z, r, g, b)
+    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 9;  // Each vertex has 9 elements (x, y, z, x, y, z, r, g, b)
 
     m_devFuncs->vkCmdDraw(cmdBuf, vertexCount, 1, 0, 0);
 

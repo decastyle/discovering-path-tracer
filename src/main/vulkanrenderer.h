@@ -37,9 +37,15 @@ protected:
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
 
-    VkDeviceMemory m_bufMem = VK_NULL_HANDLE;
-    VkBuffer m_buf = VK_NULL_HANDLE;
-    VkDescriptorBufferInfo m_uniformBufInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
+
+    VkBuffer m_stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_stagingMemory = VK_NULL_HANDLE;
+
+    VkBuffer m_uniformBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_uniformMemory = VK_NULL_HANDLE;
+    VkDescriptorBufferInfo m_uniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
 
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
@@ -48,8 +54,6 @@ protected:
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
-
-    QMatrix4x4 m_proj;
 };
 
 #endif // VULKANRENDERER_H

@@ -16,6 +16,7 @@ public:
     Camera(VulkanWindow *w);
 
     QMatrix4x4 getProj();
+    QVector3D getPos();
 
 public slots:
     void onCameraViewUpdate(QPoint m_delta);

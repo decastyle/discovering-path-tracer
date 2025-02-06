@@ -28,13 +28,11 @@ void Camera::updateProjection() {
     m_proj.perspective(m_fov, aspectRatio, 0.01f, 100.0f);
 }
 
-void Camera::onCameraViewUpdate(QPoint m_delta)
+void Camera::onCameraViewUpdate(QPoint m_delta) // TODO: On mousewheel scroll, update m_radius, and on middle click update origin
 {
     static int correction = -1;
     m_yaw += (m_delta.x() * correction) * m_sensitivity;
     m_pitch += (m_delta.y() * -1) * m_sensitivity;
-
-    // m_pitch = qBound(-89.9f, m_pitch, 89.9f);
 
     QQuaternion yawQuat = QQuaternion::fromAxisAndAngle(QVector3D(0, 1, 0), m_yaw);
     QQuaternion pitchQuat = QQuaternion::fromAxisAndAngle(QVector3D(1, 0, 0), m_pitch);
@@ -49,19 +47,18 @@ void Camera::onCameraViewUpdate(QPoint m_delta)
     m_updatedMatrix.setToIdentity();
     m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), cameraUp);
 
-    // qDebug() << cameraUp;
-
     if(cameraUp.y() < 0)
-    {
         correction = 1;
-    }
     else
-    {
         correction = -1;
-    }
 }
 
 QMatrix4x4 Camera::getProj()
 {
     return m_proj * m_updatedMatrix;
+}
+
+QVector3D Camera::getPos()
+{
+    return m_cameraPos;
 }

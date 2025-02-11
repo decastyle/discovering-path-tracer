@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     if (!instance.create()) 
     {
-        qFatal("Failed to create Vulkan instance: %d", instance.errorCode());
+        qDebug("Failed to create Vulkan instance: %d", instance.errorCode());
     }
 
     VulkanWindow* vulkanWindow = new VulkanWindow;
@@ -38,10 +38,8 @@ int main(int argc, char *argv[])
 
     MainWindow mainWindow(vulkanWindow);
 
-    mainWindow.resize(800, 600);
+    mainWindow.resize(40, 30);
     mainWindow.show();
-
-    VulkanRayTracer vulkanRayTracer; // TODO: Configure ray-tracer initialization
 
     // Worker and thread setup
     // QThread *thread = new QThread;

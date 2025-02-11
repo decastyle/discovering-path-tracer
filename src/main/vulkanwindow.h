@@ -8,10 +8,13 @@
 #include <QCursor>
 #include "camera.h"
 #include "vulkanrenderer.h"
+#include "vulkanraytracer.h"
 
 class Camera;
 
 class VulkanRenderer;
+
+class VulkanRayTracer;
 
 class VulkanWindow : public QVulkanWindow
 {
@@ -36,6 +39,7 @@ protected:
 
 private:
     Camera *m_camera;
+    VulkanRayTracer *m_raytracer;
     VulkanRenderer *m_renderer;
 
     QPoint m_delta{};

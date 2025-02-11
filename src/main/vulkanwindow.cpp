@@ -9,17 +9,19 @@ VulkanWindow::VulkanWindow()
 {
     QWindow::setCursor(Qt::OpenHandCursor);
     m_camera = new Camera(this);
+    
     QObject::connect(this, &VulkanWindow::cameraViewUpdate, m_camera, &Camera::onCameraViewUpdate);
 }
 
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
     m_renderer = new VulkanRenderer(this);
+    m_raytracer = new VulkanRayTracer(this);
 
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
+    QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::deviceReady, m_raytracer, &VulkanRayTracer::onDeviceReady);
 
     return m_renderer;
-    
 }
 
 Camera *VulkanWindow::getCamera()

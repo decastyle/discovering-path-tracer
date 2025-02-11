@@ -129,6 +129,8 @@ void VulkanRenderer::initResources()
     VkDevice dev = m_window->device();
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
+    emit m_helper->deviceReady();
+
     VkResult result{};
 
     const int concurrentFrameCount = m_window->concurrentFrameCount(); 
@@ -156,7 +158,7 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkCreateBuffer(dev, &vertexBufferInfo, nullptr, &m_vertexBuffer);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create vertex buffer: %d", result);
+        qDebug("Failed to create vertex buffer: %d", result);
 
     VkMemoryRequirements vertexBufferMemoryRequirements;
     m_devFuncs->vkGetBufferMemoryRequirements(dev, m_vertexBuffer, &vertexBufferMemoryRequirements);
@@ -170,11 +172,11 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkAllocateMemory(dev, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
     if (result != VK_SUCCESS)
-        qFatal("Failed to allocate vertex memory: %d", result);
+        qDebug("Failed to allocate vertex memory: %d", result);
 
     result = m_devFuncs->vkBindBufferMemory(dev, m_vertexBuffer, m_vertexMemory, 0);
     if (result != VK_SUCCESS)
-        qFatal("Failed to bind vertex buffer memory: %d", result);
+        qDebug("Failed to bind vertex buffer memory: %d", result);
 
     // Create staging buffer
     VkBufferCreateInfo stagingBufferInfo = {
@@ -190,7 +192,7 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkCreateBuffer(dev, &stagingBufferInfo, nullptr, &m_stagingBuffer);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create staging buffer: %d", result);
+        qDebug("Failed to create staging buffer: %d", result);
 
     VkMemoryRequirements stagingBufferMemoryRequirements;
     m_devFuncs->vkGetBufferMemoryRequirements(dev, m_stagingBuffer, &stagingBufferMemoryRequirements);
@@ -204,17 +206,17 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkAllocateMemory(dev, &stagingBufferMemoryAllocateInfo, nullptr, &m_stagingMemory);
     if (result != VK_SUCCESS)
-        qFatal("Failed to allocate staging memory: %d", result);
+        qDebug("Failed to allocate staging memory: %d", result);
 
     result = m_devFuncs->vkBindBufferMemory(dev, m_stagingBuffer, m_stagingMemory, 0);
     if (result != VK_SUCCESS)
-        qFatal("Failed to bind staging buffer memory: %d", result);
+        qDebug("Failed to bind staging buffer memory: %d", result);
 
     quint8 *pStaging;
 
     result = m_devFuncs->vkMapMemory(dev, m_stagingMemory, 0, stagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
     if (result != VK_SUCCESS)
-        qFatal("Failed to map staging memory: %d", result);
+        qDebug("Failed to map staging memory: %d", result);
 
     memcpy(pStaging, vertexData, sizeof(vertexData));
     m_devFuncs->vkUnmapMemory(dev, m_stagingMemory);
@@ -235,7 +237,7 @@ void VulkanRenderer::initResources()
     
     result = m_devFuncs->vkCreateBuffer(dev, &uniformBufferInfo, nullptr, &m_uniformBuffer);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create uniform buffer: %d", result);
+        qDebug("Failed to create uniform buffer: %d", result);
 
     VkMemoryRequirements uniformBufferMemoryRequirements;
     m_devFuncs->vkGetBufferMemoryRequirements(dev, m_uniformBuffer, &uniformBufferMemoryRequirements);
@@ -249,16 +251,16 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkAllocateMemory(dev, &uniformBufferMemoryAllocateInfo, nullptr, &m_uniformMemory);
     if (result != VK_SUCCESS)
-        qFatal("Failed to allocate uniform memory: %d", result);
+        qDebug("Failed to allocate uniform memory: %d", result);
 
     result = m_devFuncs->vkBindBufferMemory(dev, m_uniformBuffer, m_uniformMemory, 0);
     if (result != VK_SUCCESS)
-        qFatal("Failed to bind uniform buffer memory: %d", result);
+        qDebug("Failed to bind uniform buffer memory: %d", result);
 
     quint8 *pUniform;
     result = m_devFuncs->vkMapMemory(dev, m_uniformMemory, 0, uniformBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pUniform));
     if (result != VK_SUCCESS)
-        qFatal("Failed to map uniform memory: %d", result);
+        qDebug("Failed to map uniform memory: %d", result);
 
     QMatrix4x4 ident;
 
@@ -529,7 +531,7 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descPool);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create descriptor pool: %d", result);
+        qDebug("Failed to create descriptor pool: %d", result);
 
     VkDescriptorSetLayoutBinding layoutBinding = {
         .binding = 0,
@@ -549,7 +551,7 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descSetLayout);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create descriptor set layout: %d", result);
+        qDebug("Failed to create descriptor set layout: %d", result);
 
     for (int i = 0; i < concurrentFrameCount; ++i) {
 
@@ -563,7 +565,7 @@ void VulkanRenderer::initResources()
 
         result = m_devFuncs->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descSet[i]);
         if (result != VK_SUCCESS)
-            qFatal("Failed to allocate descriptor set: %d", result);
+            qDebug("Failed to allocate descriptor set: %d", result);
 
         VkWriteDescriptorSet descWrite = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -595,7 +597,7 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkCreatePipelineCache(dev, &pipelineCacheInfo, nullptr, &m_pipelineCache);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create pipeline cache: %d", result);
+        qDebug("Failed to create pipeline cache: %d", result);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -609,7 +611,7 @@ void VulkanRenderer::initResources()
     
     result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create pipeline layout: %d", result);
+        qDebug("Failed to create pipeline layout: %d", result);
 
     /////////////////////////////////////////////////////////////////////
     // Graphics pipeline
@@ -639,7 +641,7 @@ void VulkanRenderer::initResources()
 
     result = m_devFuncs->vkCreateGraphicsPipelines(dev, m_pipelineCache, 1, &pipelineInfo, nullptr, &m_pipeline);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create graphics pipeline: %d", result);
+        qDebug("Failed to create graphics pipeline: %d", result);
 
     /////////////////////////////////////////////////////////////////////
     // Clean up
@@ -840,7 +842,7 @@ void VulkanRenderer::startNextFrame()
     VkResult result = m_devFuncs->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[m_window->currentFrame()].offset,
             UNIFORM_MATRIX_DATA_SIZE + UNIFORM_VECTOR_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
     if (result != VK_SUCCESS)
-        qFatal("Failed to map memory: %d", result);
+        qDebug("Failed to map memory: %d", result);
 
     Camera *camera = m_window->getCamera();
 

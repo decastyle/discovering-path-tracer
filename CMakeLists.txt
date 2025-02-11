@@ -212,7 +212,7 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 set_target_properties(${PROJNAME} PROPERTIES
-    WIN32_EXECUTABLE TRUE
+    # WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )   
 

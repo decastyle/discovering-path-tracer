@@ -13,6 +13,7 @@ class VulkanRendererHelper : public QObject
 
 signals:
     void updateSwapChain();
+    void deviceReady();
 };
 
 class VulkanRenderer : public QVulkanWindowRenderer

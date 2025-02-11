@@ -517,7 +517,7 @@ void VulkanRenderer::initResources()
 
     VkDescriptorPoolSize descPoolSizes = {
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = uint32_t(concurrentFrameCount)
+        .descriptorCount = uint32_t(concurrentFrameCount)   
     };
 
     VkDescriptorPoolCreateInfo descPoolInfo = {

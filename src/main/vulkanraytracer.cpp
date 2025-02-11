@@ -56,10 +56,27 @@ VkShaderModule VulkanRayTracer::createShaderModule(const QString& filename)
 
 void VulkanRayTracer::onDeviceReady()
 {
+    static int initialized = 0;
+
+    if(initialized == 0)
+    {
+        initComputePipeline();
+
+        initialized = 1;
+    }
+}
+
+void VulkanRayTracer::initComputePipeline()
+{
     VkDevice dev = m_window->device();
     qDebug() << dev;
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
     qDebug() << m_devFuncs;
+
+    static const uint64_t render_width     = 800;
+    static const uint64_t render_height    = 600;
+    static const uint32_t workgroup_width  = 16;
+    static const uint32_t workgroup_height = 8;
 
     VkResult result;
 
@@ -68,6 +85,120 @@ void VulkanRayTracer::onDeviceReady()
         qDebug("No suitable compute queue family found!");
 
     vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
+    /////////////////////////////////////////////////////////////////////
+    // Create storage buffer
+    /////////////////////////////////////////////////////////////////////
+
+    VkDeviceSize       bufferSizeBytes = render_width * render_height * 3 * sizeof(float);
+    VkBufferCreateInfo vertexBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        .size = bufferSizeBytes,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+    result = m_devFuncs->vkCreateBuffer(dev, &vertexBufferInfo, nullptr, &m_storageBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create storage buffer: %d", result);
+
+    VkMemoryRequirements storageBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_storageBuffer, &storageBufferMemoryRequirements);
+
+    VkMemoryAllocateInfo storageBufferMemoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .allocationSize = storageBufferMemoryRequirements.size,
+        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &storageBufferMemoryAllocateInfo, nullptr, &m_storageMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate storage memory: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, m_storageBuffer, m_storageMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind storage buffer memory: %d", result);
+
+    /////////////////////////////////////////////////////////////////////
+    // Set up descriptor set and its layout
+    /////////////////////////////////////////////////////////////////////
+
+    VkDescriptorPoolSize descPoolSizes = {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1  
+    };
+
+    VkDescriptorPoolCreateInfo descPoolInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &descPoolSizes
+    };
+
+    result = m_devFuncs->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descPool);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create descriptor pool: %d", result);
+
+    VkDescriptorSetLayoutBinding layoutBinding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo descLayoutInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .bindingCount = 1,
+        .pBindings = &layoutBinding
+    };
+
+    result = m_devFuncs->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descSetLayout);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create descriptor set layout: %d", result);
+
+    VkDescriptorSetAllocateInfo descSetAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .descriptorPool = m_descPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &m_descSetLayout
+    };
+
+    result = m_devFuncs->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descSet);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate descriptor set: %d", result);
+
+    VkDescriptorBufferInfo m_storageBufferInfo
+    {
+        .buffer = m_storageBuffer,  
+        .offset = 0,   
+        .range  = bufferSizeBytes
+    };     
+
+    VkWriteDescriptorSet descWrite = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descSet,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &m_storageBufferInfo,
+        .pTexelBufferView = nullptr
+    };
+    
+    m_devFuncs->vkUpdateDescriptorSets(dev, 1, &descWrite, 0, nullptr);
 
     VkCommandPoolCreateInfo cmdPoolInfo 
     {
@@ -101,8 +232,8 @@ void VulkanRayTracer::onDeviceReady()
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext                  = nullptr,
         .flags                  = 0,
-        .setLayoutCount         = 0,
-        .pSetLayouts            = nullptr,  
+        .setLayoutCount         = 1,
+        .pSetLayouts            = &m_descSetLayout,  
         .pushConstantRangeCount = 0,
         .pPushConstantRanges    = nullptr
     };
@@ -154,7 +285,10 @@ void VulkanRayTracer::onDeviceReady()
 
     vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
 
-    vkCmdDispatch(cmdBuffer, 1, 1, 1);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descSet, 0, nullptr);
+
+    vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+                (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
     VkMemoryBarrier memoryBarrier
     {
@@ -197,6 +331,11 @@ void VulkanRayTracer::onDeviceReady()
         qDebug("Failed to wait for compute queue: %d", result);
 
     qDebug() << "VulkanRayTracer";
+
+    void* mappedMemory = nullptr;
+    vkMapMemory(dev, m_storageMemory, 0, bufferSizeBytes, 0, &mappedMemory); 
+    assert(mappedMemory != nullptr);
+
 }
 
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)

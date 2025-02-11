@@ -121,6 +121,8 @@ endif()
 file(GLOB_RECURSE GLSL_FILES # i can't stop lol
     src/shaders/*.frag
     src/shaders/*.vert
+    src/shaders/*.comp
+    src/shaders/*.glsl
 )
 
 set(SPV_FILES "")
@@ -210,7 +212,7 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 set_target_properties(${PROJNAME} PROPERTIES
-    WIN32_EXECUTABLE FALSE
+    WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )   
 

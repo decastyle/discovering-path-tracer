@@ -3,7 +3,7 @@
 
 Camera::Camera(VulkanWindow *w) : m_window(w)
 {
-    m_fov = 45.0f;
+    m_fov = 60.0f;
     m_sensitivity = 0.25f;
     m_radius = 5.0f;  
     m_yaw = 0.0f;
@@ -25,7 +25,22 @@ void Camera::updateProjection() {
 
     m_proj.setToIdentity();
     m_proj = m_window->clipCorrectionMatrix();
+    
     m_proj.perspective(m_fov, aspectRatio, 0.01f, 100.0f);
+
+
+    // m_proj.setToIdentity();
+    // m_proj = m_window->clipCorrectionMatrix();
+
+    // float orthoSize = 5.0f; // Controls how much of the scene is visible
+    // float left   = -orthoSize * aspectRatio;
+    // float right  =  orthoSize * aspectRatio;
+    // float bottom = -orthoSize;
+    // float top    =  orthoSize;
+    // float zNear  =  0.01f;
+    // float zFar   =  100.0f;
+
+    // m_proj.ortho(left, right, bottom, top, zNear, zFar);
 }
 
 void Camera::onCameraViewUpdate(QPoint m_delta) // TODO: On mousewheel scroll, update m_radius, and on middle click update origin

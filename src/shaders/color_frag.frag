@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 layout(location = 0) in vec3 v_color;
 layout(location = 1) in vec3 v_normal; // Interpolated normal
@@ -8,14 +8,15 @@ layout(location = 3) in vec3 v_vertPos;
 layout(location = 0) out vec4 fragColor;
 
 void main() {
-    vec4 ambientColor = vec4(0.1, 0.1, 0.1, 1.0);
+    
     vec4 specularColor = vec4(1.0, 1.0, 1.0, 1.0);
     vec4 vertexColor = vec4(v_color, 1.0);
+    vec4 ambientColor = vec4(0.1, 0.1, 0.1, 1.0) * vertexColor;
 
     float Ka = 1.0;
     float Kd = 1.0;
-    float Ks = 10.0;
-    float shininessVal = 100;
+    float Ks = 0.8;
+    float shininessVal = 5;
 
     vec3 lightPos = v_cameraPos;
     vec3 N = normalize(v_normal);
@@ -32,5 +33,7 @@ void main() {
         float specAngle = max(dot(R, V), 0.0);
         specular = pow(specAngle, shininessVal);
     }
-    fragColor = Ka * ambientColor + Kd * lambertian * vertexColor + Ks * specular * specularColor;
+    fragColor = Ka * ambientColor + 
+                Kd * lambertian * vertexColor + 
+                Ks * specular * specularColor;
 }

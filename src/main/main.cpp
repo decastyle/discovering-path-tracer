@@ -8,7 +8,7 @@
 #include "vulkanwindow.h"
 #include "vulkanrenderer.h"
 #include "mainwindow.h"
-#include "raytracer.h"
+#include "vulkanraytracer.h"
 
 static const bool DEBUG = true;
 
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     mainWindow.resize(800, 600);
     mainWindow.show();
 
-    RayTracer rayTracer(); // TODO: Configure ray-tracer initialization
+    VulkanRayTracer vulkanRayTracer; // TODO: Configure ray-tracer initialization
 
     // Worker and thread setup
     // QThread *thread = new QThread;

@@ -286,25 +286,25 @@ void VulkanRenderer::initResources()
     VkShaderModule fragShaderModule = createShaderModule(QStringLiteral(":/color_frag.spv"));
 
     VkPipelineShaderStageCreateInfo shaderStages[2] = {
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = vertShaderModule,
-        .pName = "main",
-        .pSpecializationInfo = nullptr
-    },
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = fragShaderModule,
-        .pName = "main",
-        .pSpecializationInfo = nullptr
-    }
-};
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vertShaderModule,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fragShaderModule,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        }
+    };
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline vertex input state

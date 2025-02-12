@@ -2,6 +2,11 @@
 #include <vector>
 #include "vulkanraytracer.h"
 
+static const uint64_t render_width     = 800;
+static const uint64_t render_height    = 600;
+static const uint32_t workgroup_width  = 16;
+static const uint32_t workgroup_height = 8;
+
 uint32_t VulkanRayTracer::findComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice)
 {
     uint32_t queueFamilyCount = 0;
@@ -73,11 +78,6 @@ void VulkanRayTracer::initComputePipeline()
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
     qDebug() << m_devFuncs;
 
-    static const uint64_t render_width     = 800;
-    static const uint64_t render_height    = 600;
-    static const uint32_t workgroup_width  = 16;
-    static const uint32_t workgroup_height = 8;
-
     VkResult result;
 
     uint32_t computeQueueFamilyIndex = findComputeQueueFamilyIndex(m_window->physicalDevice());
@@ -94,7 +94,7 @@ void VulkanRayTracer::initComputePipeline()
     VkBufferCreateInfo vertexBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
-        .flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        .flags = 0,
         .size = bufferSizeBytes,
         .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -125,48 +125,134 @@ void VulkanRayTracer::initComputePipeline()
         qDebug("Failed to bind storage buffer memory: %d", result);
 
     /////////////////////////////////////////////////////////////////////
+    // Create image and image view
+    /////////////////////////////////////////////////////////////////////
+
+    VkImageCreateInfo imageInfo 
+    {
+        .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext         = nullptr,
+        .flags         = 0,
+        .imageType     = VK_IMAGE_TYPE_2D,
+        .format        = VK_FORMAT_R32G32B32A32_SFLOAT,  // 4-component float format
+        .extent        = { render_width, render_height, 1 },
+        .mipLevels     = 1,
+        .arrayLayers   = 1,
+        .samples       = VK_SAMPLE_COUNT_1_BIT,
+        .tiling        = VK_IMAGE_TILING_OPTIMAL,
+        .usage         = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices   = nullptr,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+
+    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_storageImage);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create image: %d", result);
+
+    VkMemoryRequirements storageImageMemoryRequirements;
+    m_devFuncs->vkGetImageMemoryRequirements(dev, m_storageImage, &storageImageMemoryRequirements);
+    
+    VkMemoryAllocateInfo allocInfo 
+    {
+        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext           = nullptr,
+        .allocationSize  = storageImageMemoryRequirements.size,
+        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+    };    
+    
+    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_storageImageMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate image memory: %d", result);
+    
+    m_devFuncs->vkBindImageMemory(dev, m_storageImage, m_storageImageMemory, 0);
+
+    VkImageViewCreateInfo viewInfo 
+    {
+        .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext            = nullptr,
+        .flags            = 0,
+        .image            = m_storageImage,
+        .viewType         = VK_IMAGE_VIEW_TYPE_2D,
+        .format           = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .components       = {}, // Identity mapping (R->R, G->G, etc.)
+        .subresourceRange = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1
+        }
+    };    
+
+    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_storageImageView);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create image view: %d", result);
+
+    /////////////////////////////////////////////////////////////////////
     // Set up descriptor set and its layout
     /////////////////////////////////////////////////////////////////////
 
-    VkDescriptorPoolSize descPoolSizes = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1  
+    VkDescriptorPoolSize descPoolSizes[]
+    {
+        {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1  
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1  
+        }
     };
 
-    VkDescriptorPoolCreateInfo descPoolInfo = {
+    VkDescriptorPoolCreateInfo descPoolInfo 
+    {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .maxSets = 1,
-        .poolSizeCount = 1,
-        .pPoolSizes = &descPoolSizes
+        .poolSizeCount = 2,
+        .pPoolSizes = descPoolSizes
     };
 
     result = m_devFuncs->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create descriptor pool: %d", result);
 
-    VkDescriptorSetLayoutBinding layoutBinding = {
-        .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-        .pImmutableSamplers = nullptr
+    VkDescriptorSetLayoutBinding layoutBinding[] 
+    {
+        {
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
     };
 
-    VkDescriptorSetLayoutCreateInfo descLayoutInfo = {
+    VkDescriptorSetLayoutCreateInfo descLayoutInfo 
+    {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 1,
-        .pBindings = &layoutBinding
+        .bindingCount = 2,
+        .pBindings = layoutBinding
     };
 
     result = m_devFuncs->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descSetLayout);
     if (result != VK_SUCCESS)
         qDebug("Failed to create descriptor set layout: %d", result);
 
-    VkDescriptorSetAllocateInfo descSetAllocInfo = {
+    VkDescriptorSetAllocateInfo descSetAllocInfo 
+    {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = nullptr,
         .descriptorPool = m_descPool,
@@ -182,14 +268,22 @@ void VulkanRayTracer::initComputePipeline()
     {
         .buffer = m_storageBuffer,  
         .offset = 0,   
-        .range  = bufferSizeBytes
-    };     
+        .range  = VK_WHOLE_SIZE
+    };  
+    
+    VkDescriptorImageInfo descImageInfo 
+    {
+        .sampler = VK_NULL_HANDLE,
+        .imageView = m_storageImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+    };
 
-    VkWriteDescriptorSet descWrite = {
+    VkWriteDescriptorSet storageBufferWrite
+    {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
         .dstSet = m_descSet,
-        .dstBinding = 0,
+        .dstBinding = 0, // Binding 0 is for storage buffer
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -197,8 +291,29 @@ void VulkanRayTracer::initComputePipeline()
         .pBufferInfo = &m_storageBufferInfo,
         .pTexelBufferView = nullptr
     };
+
+    VkWriteDescriptorSet storageImageWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descSet,
+        .dstBinding = 1, // Binding 1 is for storage image
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .pImageInfo = &descImageInfo,
+        .pBufferInfo = nullptr,
+        .pTexelBufferView = nullptr
+    };
+
+    VkWriteDescriptorSet descriptorWrites[] = { storageBufferWrite, storageImageWrite };
+    vkUpdateDescriptorSets(dev, 2, descriptorWrites, 0, nullptr);
     
-    m_devFuncs->vkUpdateDescriptorSets(dev, 1, &descWrite, 0, nullptr);
+    m_devFuncs->vkUpdateDescriptorSets(dev, 1, descriptorWrites, 0, nullptr);
+
+    /////////////////////////////////////////////////////////////////////
+    // Create command buffer
+    /////////////////////////////////////////////////////////////////////
 
     VkCommandPoolCreateInfo cmdPoolInfo 
     {
@@ -298,12 +413,33 @@ void VulkanRayTracer::initComputePipeline()
         .dstAccessMask = VK_ACCESS_HOST_READ_BIT    
     };    
 
+    VkImageMemoryBarrier imageMemoryBarrier 
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_HOST_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_storageImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
     vkCmdPipelineBarrier(cmdBuffer,
     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
     VK_PIPELINE_STAGE_HOST_BIT,
     0,
     1, &memoryBarrier,
-    0, nullptr, 0, nullptr);                               
+    0, nullptr, 
+    1, &imageMemoryBarrier);   
 
     result = vkEndCommandBuffer(cmdBuffer);
     if (result != VK_SUCCESS)
@@ -335,6 +471,10 @@ void VulkanRayTracer::initComputePipeline()
     void* mappedMemory = nullptr;
     vkMapMemory(dev, m_storageMemory, 0, bufferSizeBytes, 0, &mappedMemory); 
     assert(mappedMemory != nullptr);
+
+    qDebug() << "Memory mapped: " << mappedMemory;
+
+    vkUnmapMemory(dev, m_storageMemory);
 
 }
 

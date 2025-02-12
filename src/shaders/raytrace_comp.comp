@@ -7,6 +7,8 @@ layout(binding = 0, set = 0) buffer storageBuffer
     float imageData[];
 };
 
+layout(binding = 1, set = 0, rgba32f) uniform image2D storageImage; // Storage image
+
 void main()
 {
     // The resolution of the buffer, which in this case is a hardcoded vector
@@ -30,13 +32,10 @@ void main()
     }
 
     // Create a vector of 3 floats with a different color per pixel.
-    const vec3 pixelColor = vec3(float(pixel.x) / resolution.x,  // Red
+    const vec4 pixelColor = vec4(float(pixel.x) / resolution.x,  // Red
                                 float(pixel.y) / resolution.y,  // Green
-                                0.0);                           // Blue
-    // Get the index of this invocation in the buffer:
-    uint linearIndex = resolution.x * pixel.y + pixel.x;
-    // Write the color to the buffer.
-    imageData[3 * linearIndex + 0] = pixelColor.r;
-    imageData[3 * linearIndex + 1] = pixelColor.g;
-    imageData[3 * linearIndex + 2] = pixelColor.b;
+                                0.0,                            // Blue
+                                1.0);                           // Alpha
+
+    imageStore(storageImage, ivec2(pixel), pixelColor);
 }

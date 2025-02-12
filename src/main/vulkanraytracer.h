@@ -35,6 +35,10 @@ private:
     VkBuffer m_storageBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_storageMemory = VK_NULL_HANDLE;
     VkDescriptorBufferInfo m_storageBufferInfo;
+    
+    VkImage m_storageImage;
+    VkDeviceMemory m_storageImageMemory;
+    VkImageView m_storageImageView;
 
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;

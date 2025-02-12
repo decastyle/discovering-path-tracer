@@ -766,6 +766,8 @@ void VulkanRenderer::releaseResources()
 
 void VulkanRenderer::startNextFrame()
 {
+    m_renderTimer.start();
+
     VkDevice device = m_window->device();
 
     const QSize sz = m_window->swapChainImageSize();
@@ -889,7 +891,14 @@ void VulkanRenderer::startNextFrame()
 
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
 
+    qint64 m_renderTimeNs = m_renderTimer.nsecsElapsed();
+
+    double m_fps = 1e9/(static_cast<double>(m_renderTimeNs));
+
+    qDebug() << "Render time:" << m_renderTimeNs / 1.0e6 << "ms, FPS (est.):" << m_fps;
+
+    m_window->setTitle(QString("FPS: %1").arg(m_fps, 0, 'f', 2));
+
     m_window->frameReady();
     m_window->requestUpdate(); 
-    emit static_cast<VulkanWindow *>(m_window)->frameQueued();
 }

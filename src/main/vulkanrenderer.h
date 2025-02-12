@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QVulkanWindow>
+#include <QElapsedTimer>
 #include "vulkanwindow.h"
 
 class VulkanWindow;
@@ -55,6 +56,10 @@ protected:
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
+
+    QElapsedTimer m_renderTimer;
+    float m_renderTimeNs = 0.0f;
+    float m_fps = 0.0f;
 };
 
 #endif // VULKANRENDERER_H

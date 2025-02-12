@@ -18,17 +18,12 @@ public:
 
 public slots:
     void onVulkanInfoReceived(const QString &text);
-    void onFrameQueued();
 
 private:
-
     VulkanWindow *m_window;
     QTabWidget *m_infoTab;
     QPlainTextEdit *m_info;
     QLCDNumber *m_number;
-
-    QElapsedTimer timer{};
-    int frameCount{};
 };
 
 #endif // MAINWINDOW_H

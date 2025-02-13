@@ -15,9 +15,6 @@ MainWindow::MainWindow(VulkanWindow *w)
     : m_window(w)
 {
     connect(m_window, &VulkanWindow::vulkanInfoReceived, this, &MainWindow::onVulkanInfoReceived);
-    connect(m_window, &VulkanWindow::frameQueued, this, &MainWindow::onFrameQueued);
-
-    timer.start();
     
     QWidget *wrapper = QWidget::createWindowContainer(w);
 
@@ -46,19 +43,4 @@ MainWindow::MainWindow(VulkanWindow *w)
 void MainWindow::onVulkanInfoReceived(const QString &text)
 {
     m_info->setPlainText(text);
-}
-
-void MainWindow::onFrameQueued()
-{
-    frameCount++;
-
-    qint64 elapsed = timer.nsecsElapsed();
-
-    double fps = static_cast<double>(frameCount * (1e9/(static_cast<double>(elapsed))) );
-    m_number->display(fps);
-
-    if (elapsed >= 1e9) {  // Every second
-        frameCount = 0;
-        timer.restart();
-    }
 }

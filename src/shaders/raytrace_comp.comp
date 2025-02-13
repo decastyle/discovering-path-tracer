@@ -1,6 +1,6 @@
 #version 460
 
-layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 layout(binding = 0, set = 0, rgba32f) uniform image2D storageImage; // Storage image
 
@@ -8,7 +8,7 @@ void main()
 {
     // The resolution of the buffer, which in this case is a hardcoded vector
     // of 2 unsigned integers:
-    const uvec2 resolution = uvec2(800, 600);
+    const uvec2 resolution = uvec2(1024, 1024);
 
     // Get the coordinates of the pixel for this invocation:
     //

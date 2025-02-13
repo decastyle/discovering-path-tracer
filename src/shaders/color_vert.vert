@@ -2,13 +2,12 @@
 
 layout(location = 0) in vec3 position;  
 layout(location = 1) in vec3 normal;    
-layout(location = 2) in vec3 color;     
+layout(location = 2) in vec2 uv;     
 
-layout(location = 0) out vec3 v_color;
+layout(location = 0) out vec3 v_vertPos; 
 layout(location = 1) out vec3 v_normal;
-layout(location = 2) out vec3 v_cameraPos; 
-layout(location = 3) out vec3 v_vertPos; 
-
+layout(location = 2) out vec2 v_uv;
+layout(location = 3) out vec3 v_cameraPos; 
 
 layout(std140, binding = 0) uniform buf {
     mat4 mvp;
@@ -23,7 +22,7 @@ void main()
 
     v_normal = normal;
 
-    v_color = color;
+    v_uv = uv;
 
     v_cameraPos = ubuf.cameraPos;
     

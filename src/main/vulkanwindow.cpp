@@ -24,6 +24,11 @@ QVulkanWindowRenderer *VulkanWindow::createRenderer()
     return m_renderer;
 }
 
+VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
+{
+    return m_raytracer;
+}
+
 Camera *VulkanWindow::getCamera()
 {
     return m_camera;

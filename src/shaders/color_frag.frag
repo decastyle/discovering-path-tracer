@@ -1,24 +1,23 @@
 #version 460
 
-layout(location = 0) in vec3 v_color;
+layout(location = 0) in vec3 v_vertPos; 
 layout(location = 1) in vec3 v_normal; // Interpolated normal
-layout(location = 2) in vec3 v_cameraPos; 
-layout(location = 3) in vec3 v_vertPos; 
+layout(location = 2) in vec2 v_uv;
+layout(location = 3) in vec3 v_cameraPos; 
 
 layout(location = 0) out vec4 fragColor;
 
-layout(binding = 1, set = 0, rgba32f) uniform image2D storageImage; // Storage image
+layout(binding = 1) uniform sampler2D texSampler;
 
 void main() {
-    
+    vec4 textureColor = texture(texSampler, v_uv);
     vec4 specularColor = vec4(1.0, 1.0, 1.0, 1.0);
-    vec4 vertexColor = vec4(v_color, 1.0);
-    vec4 ambientColor = vec4(0.1, 0.1, 0.1, 1.0) * vertexColor;
+    vec4 ambientColor = vec4(0.1, 0.1, 0.1, 1.0) * textureColor;
 
     float Ka = 1.0;
     float Kd = 1.0;
     float Ks = 0.8;
-    float shininessVal = 5;
+    float shininessVal = 3.0;
 
     vec3 lightPos = v_cameraPos;
     vec3 N = normalize(v_normal);
@@ -36,6 +35,6 @@ void main() {
         specular = pow(specAngle, shininessVal);
     }
     fragColor = Ka * ambientColor + 
-                Kd * lambertian * vertexColor + 
+                Kd * lambertian * textureColor + 
                 Ks * specular * specularColor;
 }

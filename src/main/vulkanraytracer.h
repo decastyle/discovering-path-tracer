@@ -1,6 +1,7 @@
 #ifndef VULKANRAYTRACER_H
 #define VULKANRAYTRACER_H
 
+#include <vulkan/vulkan.h>
 #include <QObject>
 #include <QString>
 #include <QWindow>
@@ -9,7 +10,7 @@
 #include <QVulkanWindow>
 #include <QVulkanFunctions>
 #include "vulkanwindow.h"
-#include <vulkan/vulkan.h>
+
 
 class VulkanWindow;
 
@@ -19,6 +20,7 @@ class VulkanRayTracer : public QObject
 
 public:
     VulkanRayTracer(VulkanWindow *w);
+    VkImage getStorageImage();
 
 public slots:
     void onDeviceReady(); // TODO: Find a better way to initialize device (right now ray-tracer waits for renderer to initialize it through QVulkanWindow)
@@ -26,7 +28,7 @@ public slots:
 private:
     void initComputePipeline();
 
-    uint32_t findComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice);
+    uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
     VkShaderModule createShaderModule(const QString &filename);

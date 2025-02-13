@@ -5,71 +5,90 @@
 #include <QObject>
 #include "camera.h"
 
-static const uint64_t render_width     = 800; // TODO: Pass this data dynamically through Qt's GUI
-static const uint64_t render_height    = 600;
+static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
+static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
-static const uint32_t workgroup_height = 8;
+static const uint32_t workgroup_height = 16;
 
-static float vertexData[] = { // TODO: Include .obj loader and a button "Load .obj" to load vertexData (update vertex input locations)
-    // Position (x, y, z)  // Normal (nx, ny, nz) // Color (r, g, b)
+// TODO: Include .obj loader and a button "Load .obj" to load vertexData (update vertex input locations)
+
+static float vertexData[] = {
+    // Position (x, y, z)  // Normal (nx, ny, nz) // UV (u, v)
 
     // Front face (Z = 1.0f)
-    -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
-     0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
-     0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+    -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
 
-     0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
-    -0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
-    -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f, 0.0f,  
+     0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
 
     // Back face (Z = -1.0f)
-    -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
-     0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
-     0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+    -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 0.0f,
 
-     0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
-    -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
-    -0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f, 0.0f,  
+     0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 1.0f,
 
     // Left face (X = -1.0f)
-    -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,  
-    -0.5f, -0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,  
-    -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
 
-    -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
 
     // Right face (X = 1.0f)
-     0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 0.0f,
 
-     0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 1.0f,
 
     // Top face (Y = 1.0f)
-    -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 0.0f,
 
-     0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f,
 
     // Bottom face (Y = -1.0f)
-    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 1.0f,
 
-     0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 0.0f,
 };
 
 static const int UNIFORM_MATRIX_DATA_SIZE = 16 * sizeof(float);
 static const int UNIFORM_VECTOR_DATA_SIZE = 3 * sizeof(float);
+
+uint32_t VulkanRenderer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
+{
+    uint32_t queueFamilyCount = 0;
+    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+
+    for (uint32_t i = 0; i < queueFamilyCount; i++) {
+        if (queueFamilies[i].queueFlags & bit) {
+            return i;  
+        }
+    }
+    
+    return UINT32_MAX; 
+}
 
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
@@ -136,6 +155,12 @@ void VulkanRenderer::initResources()
 
     emit m_helper->deviceReady();
 
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    if (computeQueueFamilyIndex == UINT32_MAX)
+        qDebug("No suitable compute queue family found!");
+
+    m_devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
     VkResult result{};
 
     const int concurrentFrameCount = m_window->concurrentFrameCount(); 
@@ -143,6 +168,7 @@ void VulkanRenderer::initResources()
     
     const VkPhysicalDeviceLimits *pdevLimits = &m_window->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
+    const float maxSamplerAnisotropy = pdevLimits->maxSamplerAnisotropy;
     qDebug("Uniform buffer offset alignment is %u", (uint) uniAlign);
 
     /////////////////////////////////////////////////////////////////////
@@ -297,19 +323,19 @@ void VulkanRenderer::initResources()
         .arrayLayers   = 1,
         .samples       = VK_SAMPLE_COUNT_1_BIT,
         .tiling        = VK_IMAGE_TILING_OPTIMAL,
-        .usage         = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        .usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices   = nullptr,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
-    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_storageImage);
+    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_renderImage);
     if (result != VK_SUCCESS)
         qDebug("Failed to create image: %d", result);
 
     VkMemoryRequirements storageImageMemoryRequirements;
-    m_devFuncs->vkGetImageMemoryRequirements(dev, m_storageImage, &storageImageMemoryRequirements);
+    m_devFuncs->vkGetImageMemoryRequirements(dev, m_renderImage, &storageImageMemoryRequirements);
     
     VkMemoryAllocateInfo allocInfo 
     {
@@ -319,18 +345,18 @@ void VulkanRenderer::initResources()
         .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
     };    
     
-    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_storageImageMemory);
+    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_renderImageMemory);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate image memory: %d", result);
     
-    m_devFuncs->vkBindImageMemory(dev, m_storageImage, m_storageImageMemory, 0);
+    m_devFuncs->vkBindImageMemory(dev, m_renderImage, m_renderImageMemory, 0);
 
     VkImageViewCreateInfo viewInfo 
     {
         .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext            = nullptr,
         .flags            = 0,
-        .image            = m_storageImage,
+        .image            = m_renderImage,
         .viewType         = VK_IMAGE_VIEW_TYPE_2D,
         .format           = VK_FORMAT_R32G32B32A32_SFLOAT,
         .components       = {}, // Identity mapping (R->R, G->G, etc.)
@@ -343,9 +369,193 @@ void VulkanRenderer::initResources()
         }
     };    
 
-    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_storageImageView);
+    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_renderImageView);
     if (result != VK_SUCCESS)
         qDebug("Failed to create image view: %d", result);
+
+    VkSamplerCreateInfo samplerInfo{
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .magFilter = VK_FILTER_LINEAR,
+            .minFilter = VK_FILTER_LINEAR,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .mipLodBias = 0.0f,
+            .anisotropyEnable = VK_FALSE, // TODO: Check if anisotropy is supported
+            .maxAnisotropy = maxSamplerAnisotropy,
+            .compareEnable = VK_FALSE,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .minLod = 0.0f,
+            .maxLod = VK_LOD_CLAMP_NONE,
+            .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+            .unnormalizedCoordinates = VK_FALSE,
+        };
+
+    result = m_devFuncs->vkCreateSampler(dev, &samplerInfo, nullptr, &m_textureSampler);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create sampler: %d", result);
+
+    /////////////////////////////////////////////////////////////////////
+    // Create command buffer
+    /////////////////////////////////////////////////////////////////////
+
+    VkCommandPoolCreateInfo cmdPoolInfo 
+    {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext            = nullptr,
+        .flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = computeQueueFamilyIndex
+    };
+    
+    VkCommandPool cmdPool;
+
+    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create command pool: %d", result);
+
+    VkCommandBufferAllocateInfo cmdAllocInfo 
+    {
+        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext              = nullptr,
+        .commandPool        = cmdPool,
+        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    VkCommandBuffer cmdBuffer;
+    result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate command buffer: %d", result);
+
+    VkCommandBufferBeginInfo beginInfo 
+    {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext            = nullptr,
+        .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = nullptr
+    };
+    
+    result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to begin command buffer: %d", result);
+
+    VkImageMemoryBarrier imageMemoryBarrierToTransferDst
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_renderImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToTransferDst);   
+
+    VkImageCopy copyRegion
+    {
+        .srcSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .srcOffset = {0, 0, 0},
+        .dstSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .dstOffset = {0, 0, 0},
+        .extent = {
+            .width = render_width,
+            .height = render_height,
+            .depth = 1
+        }
+    };
+
+    VulkanRayTracer *raytracer = m_window->getVulkanRayTracer();
+    VkImage storageImage = raytracer->getStorageImage(); 
+
+    m_devFuncs->vkCmdCopyImage(
+        cmdBuffer, 
+        storageImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        m_renderImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        1, &copyRegion);
+
+    VkImageMemoryBarrier imageMemoryBarrierToShaderRead
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_renderImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToShaderRead);   
+
+    result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to end command buffer: %d", result);
+
+    VkSubmitInfo submitInfo 
+    {
+        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext                = nullptr,
+        .waitSemaphoreCount   = 0,
+        .pWaitSemaphores      = nullptr,
+        .pWaitDstStageMask    = nullptr,
+        .commandBufferCount   = 1,
+        .pCommandBuffers      = &cmdBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores    = nullptr
+    };   
+
+    result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to submit command buffer to compute queue: %d", result);
+
+    result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to wait for compute queue: %d", result);
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline shader stages
@@ -393,7 +603,7 @@ void VulkanRenderer::initResources()
 
     VkVertexInputBindingDescription vertexBindingDesc = {
         .binding = 0,
-        .stride = 9 * sizeof(float),
+        .stride = 8 * sizeof(float),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
@@ -410,10 +620,10 @@ void VulkanRenderer::initResources()
             .format = VK_FORMAT_R32G32B32_SFLOAT,
             .offset = 3 * sizeof(float)
         },
-        { // color
+        { // uv
             .location = 2,
             .binding = 0,
-            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .format = VK_FORMAT_R32G32_SFLOAT,
             .offset = 6 * sizeof(float)
         }
     };
@@ -504,7 +714,7 @@ void VulkanRenderer::initResources()
         .pNext = nullptr,
         .flags = 0,
         .rasterizationSamples = m_window->sampleCountFlagBits(),
-        .sampleShadingEnable = VK_FALSE,
+        .sampleShadingEnable = VK_TRUE,
         .minSampleShading = 1.0f,           // Optional
         .pSampleMask = nullptr,            // Optional
         .alphaToCoverageEnable = VK_FALSE, // Optional
@@ -593,7 +803,7 @@ void VulkanRenderer::initResources()
             .descriptorCount = uint32_t(concurrentFrameCount)   
         },
         {
-            .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = uint32_t(concurrentFrameCount)
         }
     };
@@ -622,7 +832,7 @@ void VulkanRenderer::initResources()
         },
         {
             .binding = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
             .pImmutableSamplers = nullptr
@@ -670,9 +880,9 @@ void VulkanRenderer::initResources()
 
         VkDescriptorImageInfo descImageInfo 
         {
-            .sampler = VK_NULL_HANDLE,
-            .imageView = m_storageImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler = m_textureSampler,
+            .imageView = m_renderImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
 
         VkWriteDescriptorSet storageImageWrite
@@ -683,7 +893,7 @@ void VulkanRenderer::initResources()
             .dstBinding = 1, // Binding 1 is for storage image
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = &descImageInfo,
             .pBufferInfo = nullptr,
             .pTexelBufferView = nullptr
@@ -996,7 +1206,7 @@ void VulkanRenderer::startNextFrame()
     };
     m_devFuncs->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 9;  // Each vertex has 9 elements (x, y, z, x, y, z, r, g, b)
+    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 8;  // Each vertex has 9 elements (x, y, z, x, y, z, u, v)
 
     m_devFuncs->vkCmdDraw(cmdBuf, vertexCount, 1, 0, 0);
 
@@ -1006,9 +1216,7 @@ void VulkanRenderer::startNextFrame()
 
     double m_fps = 1e9/(static_cast<double>(m_renderTimeNs));
 
-    qDebug() << "Render time:" << m_renderTimeNs / 1.0e6 << "ms, FPS (est.):" << m_fps;
-
-    m_window->setTitle(QString("FPS: %1").arg(m_fps, 0, 'f', 2));
+    qDebug() << "Render time:" << m_renderTimeNs / 1.0e6 << "ms, FPS:" << m_fps;
 
     m_window->frameReady();
     m_window->requestUpdate(); 

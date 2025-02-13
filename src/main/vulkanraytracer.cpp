@@ -2,21 +2,21 @@
 #include <vector>
 #include "vulkanraytracer.h"
 
-static const uint64_t render_width     = 800;
-static const uint64_t render_height    = 600;
+static const uint64_t render_width     = 1024;
+static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
-static const uint32_t workgroup_height = 8;
+static const uint32_t workgroup_height = 16;
 
-uint32_t VulkanRayTracer::findComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice)
+uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
 {
     uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
 
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+        if (queueFamilies[i].queueFlags & bit) {
             return i;  
         }
     }
@@ -80,9 +80,12 @@ void VulkanRayTracer::initComputePipeline()
 
     VkResult result;
 
-    uint32_t computeQueueFamilyIndex = findComputeQueueFamilyIndex(m_window->physicalDevice());
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
+    uint32_t transferQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_TRANSFER_BIT);
+    if (transferQueueFamilyIndex == UINT32_MAX)
+        qDebug("No suitable transfer queue family found!");
 
     vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
 
@@ -254,7 +257,7 @@ void VulkanRayTracer::initComputePipeline()
     
     VkCommandPool cmdPool;
 
-    result = vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
+    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create command pool: %d", result);
 
@@ -311,7 +314,7 @@ void VulkanRayTracer::initComputePipeline()
     };
 
     VkCommandBuffer cmdBuffer;
-    result = vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+    result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate command buffer: %d", result);
 
@@ -323,23 +326,16 @@ void VulkanRayTracer::initComputePipeline()
         .pInheritanceInfo = nullptr
     };
     
-    result = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+    result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     if (result != VK_SUCCESS)
         qDebug("Failed to begin command buffer: %d", result);
 
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
-
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descSet, 0, nullptr);
-
-    vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
-                (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
-
-    VkImageMemoryBarrier imageMemoryBarrier 
+    VkImageMemoryBarrier imageMemoryBarrierToGeneral
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .newLayout = VK_IMAGE_LAYOUT_GENERAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -354,15 +350,50 @@ void VulkanRayTracer::initComputePipeline()
         }
     };  
 
-    vkCmdPipelineBarrier(cmdBuffer,
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
     0,
     0, nullptr,
     0, nullptr, 
-    1, &imageMemoryBarrier);   
+    1, &imageMemoryBarrierToGeneral);   
 
-    result = vkEndCommandBuffer(cmdBuffer);
+    m_devFuncs->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+
+    m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descSet, 0, nullptr);
+
+    m_devFuncs->vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+                (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
+
+    VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .srcQueueFamilyIndex = computeQueueFamilyIndex,
+        .dstQueueFamilyIndex = transferQueueFamilyIndex,
+        .image = m_storageImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToTransferSrc);   
+
+    result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
     if (result != VK_SUCCESS)
         qDebug("Failed to end command buffer: %d", result);
 
@@ -379,11 +410,11 @@ void VulkanRayTracer::initComputePipeline()
         .pSignalSemaphores    = nullptr
     };    
 
-    result = vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (result != VK_SUCCESS)
         qDebug("Failed to submit command buffer to compute queue: %d", result);
 
-    result = vkQueueWaitIdle(m_computeQueue);
+    result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
     if (result != VK_SUCCESS)
         qDebug("Failed to wait for compute queue: %d", result);
 }
@@ -392,4 +423,9 @@ VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
     : m_window(w)
 {
     
+}
+
+VkImage VulkanRayTracer::getStorageImage()
+{
+    return m_storageImage;
 }

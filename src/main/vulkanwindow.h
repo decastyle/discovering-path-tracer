@@ -27,6 +27,8 @@ public:
 
     Camera *getCamera();
 
+    VulkanRayTracer *getVulkanRayTracer();
+
 signals:
     void vulkanInfoReceived(const QString &text);
     void cameraViewUpdate(QPoint m_delta);

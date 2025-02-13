@@ -5,6 +5,7 @@
 #include <QVulkanWindow>
 #include <QElapsedTimer>
 #include "vulkanwindow.h"
+#include <vulkan/vulkan.h>
 
 class VulkanWindow;
 
@@ -34,6 +35,7 @@ public:
     VulkanRendererHelper *m_helper;
 
 protected:
+    uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
 
     VulkanWindow *m_window;
@@ -49,9 +51,11 @@ protected:
     VkDeviceMemory m_uniformMemory = VK_NULL_HANDLE;
     VkDescriptorBufferInfo m_uniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
 
-    VkImage m_storageImage;
-    VkDeviceMemory m_storageImageMemory;
-    VkImageView m_storageImageView;
+    VkImage m_renderImage;
+    VkDeviceMemory m_renderImageMemory;
+    VkImageView m_renderImageView;
+
+    VkSampler m_textureSampler;
 
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
@@ -60,6 +64,8 @@ protected:
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
+
+    VkQueue m_computeQueue;
 
     QElapsedTimer m_renderTimer;
     float m_renderTimeNs = 0.0f;

@@ -32,11 +32,13 @@ public:
 signals:
     void vulkanInfoReceived(const QString &text);
     void cameraViewUpdate(QPoint m_delta);
+    void cameraZoomUpdate(float m_zoom);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private:
     Camera *m_camera;
@@ -44,6 +46,7 @@ private:
     VulkanRenderer *m_renderer;
 
     QPoint m_delta{};
+    float m_zoom{};
     QPoint m_lastCursorPos{};
 };
 

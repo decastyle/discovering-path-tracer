@@ -77,3 +77,16 @@ QVector3D Camera::getPos()
 {
     return m_cameraPos;
 }
+
+void Camera::onCameraZoomUpdate(float m_zoom)
+{
+    m_radius *= m_zoom;
+    
+    QVector3D offset(0, 0, m_radius);
+    m_cameraPos = m_rotation.rotatedVector(offset);
+
+    QVector3D cameraUp = m_rotation * QVector3D(0, 1, 0);
+
+    m_updatedMatrix.setToIdentity();
+    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), cameraUp);
+}

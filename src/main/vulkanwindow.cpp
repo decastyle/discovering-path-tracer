@@ -1,5 +1,6 @@
 #include "vulkanwindow.h"
 #include "vulkanrenderer.h"
+#include <QWheelEvent>
 #include <QMouseEvent>
 #include <QCursor>
 #include <QObject>
@@ -11,6 +12,7 @@ VulkanWindow::VulkanWindow()
     m_camera = new Camera(this);
     
     QObject::connect(this, &VulkanWindow::cameraViewUpdate, m_camera, &Camera::onCameraViewUpdate);
+    QObject::connect(this, &VulkanWindow::cameraZoomUpdate, m_camera, &Camera::onCameraZoomUpdate);
 }
 
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
@@ -33,6 +35,26 @@ Camera *VulkanWindow::getCamera()
 {
     return m_camera;
 }
+
+void VulkanWindow::wheelEvent(QWheelEvent *event)
+{
+    qDebug() << event->angleDelta().y();
+    
+    m_zoom = 1.0;
+    
+    if (event->angleDelta().y() > 0)
+    {
+        m_zoom = 0.9;
+    }
+    else
+    {
+        m_zoom = 1.1;
+    }
+
+    emit cameraZoomUpdate(m_zoom);
+}
+
+
 
 void VulkanWindow::mousePressEvent(QMouseEvent *event)
 {

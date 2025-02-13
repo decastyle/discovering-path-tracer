@@ -20,6 +20,7 @@ public:
 
 public slots:
     void onCameraViewUpdate(QPoint m_delta);
+    void onCameraZoomUpdate(float m_zoom);
     void onUpdateSwapChain();
 
 private:

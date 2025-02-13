@@ -31,10 +31,6 @@ private:
     QVulkanDeviceFunctions *m_devFuncs;
     VkShaderModule createShaderModule(const QString &filename);
     VkQueue m_computeQueue;
-
-    VkBuffer m_storageBuffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_storageMemory = VK_NULL_HANDLE;
-    VkDescriptorBufferInfo m_storageBufferInfo;
     
     VkImage m_storageImage;
     VkDeviceMemory m_storageImageMemory;

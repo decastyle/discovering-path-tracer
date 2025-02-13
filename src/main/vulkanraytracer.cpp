@@ -87,44 +87,6 @@ void VulkanRayTracer::initComputePipeline()
     vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
 
     /////////////////////////////////////////////////////////////////////
-    // Create storage buffer
-    /////////////////////////////////////////////////////////////////////
-
-    VkDeviceSize       bufferSizeBytes = render_width * render_height * 3 * sizeof(float);
-    VkBufferCreateInfo vertexBufferInfo = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .size = bufferSizeBytes,
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = nullptr
-    };
-
-    result = m_devFuncs->vkCreateBuffer(dev, &vertexBufferInfo, nullptr, &m_storageBuffer);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create storage buffer: %d", result);
-
-    VkMemoryRequirements storageBufferMemoryRequirements;
-    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_storageBuffer, &storageBufferMemoryRequirements);
-
-    VkMemoryAllocateInfo storageBufferMemoryAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = nullptr,
-        .allocationSize = storageBufferMemoryRequirements.size,
-        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
-    };
-
-    result = m_devFuncs->vkAllocateMemory(dev, &storageBufferMemoryAllocateInfo, nullptr, &m_storageMemory);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to allocate storage memory: %d", result);
-
-    result = m_devFuncs->vkBindBufferMemory(dev, m_storageBuffer, m_storageMemory, 0);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to bind storage buffer memory: %d", result);
-
-    /////////////////////////////////////////////////////////////////////
     // Create image and image view
     /////////////////////////////////////////////////////////////////////
 
@@ -197,10 +159,6 @@ void VulkanRayTracer::initComputePipeline()
     VkDescriptorPoolSize descPoolSizes[]
     {
         {
-            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 1  
-        },
-        {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .descriptorCount = 1  
         }
@@ -212,7 +170,7 @@ void VulkanRayTracer::initComputePipeline()
         .pNext = nullptr,
         .flags = 0,
         .maxSets = 1,
-        .poolSizeCount = 2,
+        .poolSizeCount = 1,
         .pPoolSizes = descPoolSizes
     };
 
@@ -224,13 +182,6 @@ void VulkanRayTracer::initComputePipeline()
     {
         {
             .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-            .pImmutableSamplers = nullptr
-        },
-        {
-            .binding = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -243,7 +194,7 @@ void VulkanRayTracer::initComputePipeline()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 2,
+        .bindingCount = 1,
         .pBindings = layoutBinding
     };
 
@@ -263,13 +214,6 @@ void VulkanRayTracer::initComputePipeline()
     result = m_devFuncs->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descSet);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate descriptor set: %d", result);
-
-    VkDescriptorBufferInfo m_storageBufferInfo
-    {
-        .buffer = m_storageBuffer,  
-        .offset = 0,   
-        .range  = VK_WHOLE_SIZE
-    };  
     
     VkDescriptorImageInfo descImageInfo 
     {
@@ -278,26 +222,12 @@ void VulkanRayTracer::initComputePipeline()
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    VkWriteDescriptorSet storageBufferWrite
-    {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .pNext = nullptr,
-        .dstSet = m_descSet,
-        .dstBinding = 0, // Binding 0 is for storage buffer
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .pImageInfo = nullptr,
-        .pBufferInfo = &m_storageBufferInfo,
-        .pTexelBufferView = nullptr
-    };
-
     VkWriteDescriptorSet storageImageWrite
     {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
         .dstSet = m_descSet,
-        .dstBinding = 1, // Binding 1 is for storage image
+        .dstBinding = 0, // Binding 0 is for storage image
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -306,8 +236,7 @@ void VulkanRayTracer::initComputePipeline()
         .pTexelBufferView = nullptr
     };
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageBufferWrite, storageImageWrite };
-    vkUpdateDescriptorSets(dev, 2, descriptorWrites, 0, nullptr);
+    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite };
     
     m_devFuncs->vkUpdateDescriptorSets(dev, 1, descriptorWrites, 0, nullptr);
 
@@ -405,20 +334,12 @@ void VulkanRayTracer::initComputePipeline()
     vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
                 (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
-    VkMemoryBarrier memoryBarrier
-    {
-        .sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-        .pNext         = nullptr,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,  
-        .dstAccessMask = VK_ACCESS_HOST_READ_BIT    
-    };    
-
     VkImageMemoryBarrier imageMemoryBarrier 
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
         .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_HOST_READ_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .newLayout = VK_IMAGE_LAYOUT_GENERAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -435,9 +356,9 @@ void VulkanRayTracer::initComputePipeline()
 
     vkCmdPipelineBarrier(cmdBuffer,
     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-    VK_PIPELINE_STAGE_HOST_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
     0,
-    1, &memoryBarrier,
+    0, nullptr,
     0, nullptr, 
     1, &imageMemoryBarrier);   
 
@@ -465,21 +386,10 @@ void VulkanRayTracer::initComputePipeline()
     result = vkQueueWaitIdle(m_computeQueue);
     if (result != VK_SUCCESS)
         qDebug("Failed to wait for compute queue: %d", result);
-
-    qDebug() << "VulkanRayTracer";
-
-    void* mappedMemory = nullptr;
-    vkMapMemory(dev, m_storageMemory, 0, bufferSizeBytes, 0, &mappedMemory); 
-    assert(mappedMemory != nullptr);
-
-    qDebug() << "Memory mapped: " << mappedMemory;
-
-    vkUnmapMemory(dev, m_storageMemory);
-
 }
 
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
     : m_window(w)
 {
-    // TODO: Initialize compute pipeline
+    
 }

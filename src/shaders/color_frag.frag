@@ -7,6 +7,8 @@ layout(location = 3) in vec3 v_vertPos;
 
 layout(location = 0) out vec4 fragColor;
 
+layout(binding = 1, set = 0, rgba32f) uniform image2D storageImage; // Storage image
+
 void main() {
     
     vec4 specularColor = vec4(1.0, 1.0, 1.0, 1.0);

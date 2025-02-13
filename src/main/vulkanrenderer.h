@@ -41,12 +41,16 @@ protected:
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
 
-    VkBuffer m_stagingBuffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_stagingMemory = VK_NULL_HANDLE;
+    VkBuffer m_vertexStagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexStagingMemory = VK_NULL_HANDLE;
 
     VkBuffer m_uniformBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_uniformMemory = VK_NULL_HANDLE;
     VkDescriptorBufferInfo m_uniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+
+    VkImage m_storageImage;
+    VkDeviceMemory m_storageImageMemory;
+    VkImageView m_storageImageView;
 
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;

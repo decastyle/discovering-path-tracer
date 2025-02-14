@@ -1,6 +1,8 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include "vulkanraytracer.h"
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
 
 static const uint64_t render_width     = 1024;
 static const uint64_t render_height    = 1024;
@@ -83,11 +85,201 @@ void VulkanRayTracer::initComputePipeline()
     uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
+
     uint32_t transferQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_TRANSFER_BIT);
     if (transferQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable transfer queue family found!");
 
     vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
+    /////////////////////////////////////////////////////////////////////
+    // Load the mesh of the first shape from an OBJ file
+    /////////////////////////////////////////////////////////////////////
+
+    tinyobj::ObjReader reader;
+
+    if (!reader.ParseFromFile("../../scenes/CornellBox-Original-Merged.obj")) {
+        qDebug() << "Failed to load .obj: " << reader.Error();
+    }
+
+    const std::vector<tinyobj::real_t>   objVertices = reader.GetAttrib().GetVertices();
+
+    const std::vector<tinyobj::shape_t>& objShapes   = reader.GetShapes();  // All shapes in the file
+    assert(objShapes.size() == 1);                                          // Check that this file has only one shape
+    const tinyobj::shape_t& objShape = objShapes[0];                        // Get the first shape
+
+    // Get the indices of the vertices of the first mesh of `objShape` in `attrib.vertices`:
+    std::vector<uint32_t> objIndices;
+    objIndices.reserve(objShape.mesh.indices.size());
+    
+    for(const tinyobj::index_t& index : objShape.mesh.indices)
+    {
+        objIndices.push_back(index.vertex_index);
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    // Create buffers
+    /////////////////////////////////////////////////////////////////////
+
+    // Create vertex buffer
+    VkBufferCreateInfo vertexBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = sizeof(objVertices),
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+    result = m_devFuncs->vkCreateBuffer(dev, &vertexBufferInfo, nullptr, &m_vertexBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create vertex buffer: %d", result);
+
+    VkMemoryRequirements vertexBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_vertexBuffer, &vertexBufferMemoryRequirements);
+
+    VkMemoryAllocateInfo vertexBufferMemoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .allocationSize = vertexBufferMemoryRequirements.size,
+        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate vertex memory: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, m_vertexBuffer, m_vertexMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind vertex buffer memory: %d", result);
+
+    // Create staging buffer
+    VkBufferCreateInfo vertexStagingBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = sizeof(objVertices),
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+    result = m_devFuncs->vkCreateBuffer(dev, &vertexStagingBufferInfo, nullptr, &m_vertexStagingBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create vertex staging buffer: %d", result);
+
+    VkMemoryRequirements vertexStagingBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_vertexStagingBuffer, &vertexStagingBufferMemoryRequirements);
+
+    VkMemoryAllocateInfo vertexStagingBufferMemoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .allocationSize = vertexStagingBufferMemoryRequirements.size,
+        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &vertexStagingBufferMemoryAllocateInfo, nullptr, &m_vertexStagingMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate vertex staging memory: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, m_vertexStagingBuffer, m_vertexStagingMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind vertex staging buffer memory: %d", result);
+
+    quint8 *pStaging;
+
+    result = m_devFuncs->vkMapMemory(dev, m_vertexStagingMemory, 0, vertexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
+    if (result != VK_SUCCESS)
+        qDebug("Failed to map vertex staging memory: %d", result);
+
+    memcpy(pStaging, &objVertices, sizeof(objVertices));
+    m_devFuncs->vkUnmapMemory(dev, m_vertexStagingMemory);
+
+
+
+
+
+
+
+    // Create index buffer
+    VkBufferCreateInfo indexBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = sizeof(objIndices),
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+    result = m_devFuncs->vkCreateBuffer(dev, &indexBufferInfo, nullptr, &m_indexBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create index buffer: %d", result);
+
+    VkMemoryRequirements indexBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_indexBuffer, &indexBufferMemoryRequirements);
+
+    VkMemoryAllocateInfo indexBufferMemoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .allocationSize = indexBufferMemoryRequirements.size,
+        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &indexBufferMemoryAllocateInfo, nullptr, &m_indexMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate index memory: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, m_indexBuffer, m_indexMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind index buffer memory: %d", result);
+
+    // Create staging buffer
+    VkBufferCreateInfo indexStagingBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = sizeof(objIndices),
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+    result = m_devFuncs->vkCreateBuffer(dev, &indexStagingBufferInfo, nullptr, &m_indexStagingBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create index staging buffer: %d", result);
+
+    VkMemoryRequirements indexStagingBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_indexStagingBuffer, &indexStagingBufferMemoryRequirements);
+
+    VkMemoryAllocateInfo indexStagingBufferMemoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .allocationSize = indexStagingBufferMemoryRequirements.size,
+        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &indexStagingBufferMemoryAllocateInfo, nullptr, &m_indexStagingMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate index staging memory: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, m_indexStagingBuffer, m_indexStagingMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind index staging buffer memory: %d", result);
+
+    quint8 *pStaging;
+
+    result = m_devFuncs->vkMapMemory(dev, m_indexStagingMemory, 0, indexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
+    if (result != VK_SUCCESS)
+        qDebug("Failed to map index staging memory: %d", result);
+
+    memcpy(pStaging, &objIndices, sizeof(objIndices));
+    m_devFuncs->vkUnmapMemory(dev, m_indexStagingMemory);
 
     /////////////////////////////////////////////////////////////////////
     // Create image and image view
@@ -285,7 +477,7 @@ void VulkanRayTracer::initComputePipeline()
         .pPushConstantRanges    = nullptr
     };
     
-    result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
+    result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_computePipelineLayout);
     if (result != VK_SUCCESS)
         qDebug("Failed to create pipeline layout: %d", result);
 
@@ -295,12 +487,12 @@ void VulkanRayTracer::initComputePipeline()
         .pNext              = nullptr,
         .flags              = 0,
         .stage              = shaderStageCreateInfo,
-        .layout             = m_pipelineLayout,
+        .layout             = m_computePipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex  = -1
     };
 
-    result = m_devFuncs->vkCreateComputePipelines(dev, m_pipelineCache, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
+    result = m_devFuncs->vkCreateComputePipelines(dev, m_computePipelineCache, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
     if (result != VK_SUCCESS)
         qDebug("Failed to create compute pipeline: %d", result);
 
@@ -360,7 +552,7 @@ void VulkanRayTracer::initComputePipeline()
 
     m_devFuncs->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
 
-    m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descSet, 0, nullptr);
+    m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_descSet, 0, nullptr);
 
     m_devFuncs->vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
                 (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
@@ -417,6 +609,8 @@ void VulkanRayTracer::initComputePipeline()
     result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
     if (result != VK_SUCCESS)
         qDebug("Failed to wait for compute queue: %d", result);
+
+    qDebug() << "VULKANRAYTRACER.CPP after compute write to image";
 }
 
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)

@@ -43,7 +43,7 @@ void Camera::updateProjection() {
     // m_proj.ortho(left, right, bottom, top, zNear, zFar);
 }
 
-void Camera::onCameraViewUpdate(QPoint m_delta) // TODO: On mousewheel scroll, update m_radius, and on middle click update origin
+void Camera::onCameraViewUpdate(QPoint m_delta) // TODO: on middle click update origin
 {
     static int correction = -1;
     m_yaw += (m_delta.x() * correction) * m_sensitivity;

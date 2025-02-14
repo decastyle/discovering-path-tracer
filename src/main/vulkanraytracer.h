@@ -32,18 +32,28 @@ private:
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
     VkShaderModule createShaderModule(const QString &filename);
-    VkQueue m_computeQueue;
+    VkQueue m_computeQueue = VK_NULL_HANDLE;
     
-    VkImage m_storageImage;
-    VkDeviceMemory m_storageImageMemory;
-    VkImageView m_storageImageView;
+    VkImage m_storageImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
+    VkImageView m_storageImageView = VK_NULL_HANDLE;
+
+    VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
+    VkBuffer m_vertexStagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexStagingMemory = VK_NULL_HANDLE;
+
+    VkBuffer m_indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_indexMemory = VK_NULL_HANDLE;
+    VkBuffer m_indexStagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_indexStagingMemory = VK_NULL_HANDLE;
 
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet m_descSet = VK_NULL_HANDLE;
 
-    VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
-    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+    VkPipelineCache m_computePipelineCache = VK_NULL_HANDLE;
+    VkPipelineLayout m_computePipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_computePipeline = VK_NULL_HANDLE;
 };
 

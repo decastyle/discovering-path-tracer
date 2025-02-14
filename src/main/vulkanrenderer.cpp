@@ -153,7 +153,9 @@ void VulkanRenderer::initResources()
     VkDevice dev = m_window->device();
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
-    emit m_helper->deviceReady();
+    emit m_helper->deviceReady(); // TODO: Better raytracing initialization
+    
+    qDebug() << "VULKANRENDERER.CPP after deviceReady()";
 
     uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
@@ -198,7 +200,7 @@ void VulkanRenderer::initResources()
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = nullptr,
         .allocationSize = vertexBufferMemoryRequirements.size,
-        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
     };
 
     result = m_devFuncs->vkAllocateMemory(dev, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);

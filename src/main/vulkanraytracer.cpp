@@ -98,23 +98,19 @@ void VulkanRayTracer::initComputePipeline()
 
     tinyobj::ObjReader reader;
 
-    if (!reader.ParseFromFile("../../scenes/CornellBox-Original-Merged.obj")) {
+    if (!reader.ParseFromFile("../scenes/CornellBox-Original.obj")) { // TODO: Better scene loading
         qDebug() << "Failed to load .obj: " << reader.Error();
     }
 
-    const std::vector<tinyobj::real_t>   objVertices = reader.GetAttrib().GetVertices();
+    const std::vector<tinyobj::real_t>& objVertices = reader.GetAttrib().GetVertices();
+    const std::vector<tinyobj::shape_t>& objShapes = reader.GetShapes(); // All shapes in the file
 
-    const std::vector<tinyobj::shape_t>& objShapes   = reader.GetShapes();  // All shapes in the file
-    assert(objShapes.size() == 1);                                          // Check that this file has only one shape
-    const tinyobj::shape_t& objShape = objShapes[0];                        // Get the first shape
+    std::vector<uint32_t> objIndices; // Store indices from all shapes
 
-    // Get the indices of the vertices of the first mesh of `objShape` in `attrib.vertices`:
-    std::vector<uint32_t> objIndices;
-    objIndices.reserve(objShape.mesh.indices.size());
-    
-    for(const tinyobj::index_t& index : objShape.mesh.indices)
-    {
-        objIndices.push_back(index.vertex_index);
+    for (const tinyobj::shape_t& objShape : objShapes) {
+        for (const tinyobj::index_t& index : objShape.mesh.indices) {
+            objIndices.push_back(index.vertex_index);
+        }
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -127,7 +123,7 @@ void VulkanRayTracer::initComputePipeline()
         .pNext = nullptr,
         .flags = 0,
         .size = sizeof(objVertices),
-        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr
@@ -189,13 +185,13 @@ void VulkanRayTracer::initComputePipeline()
     if (result != VK_SUCCESS)
         qDebug("Failed to bind vertex staging buffer memory: %d", result);
 
-    quint8 *pStaging;
+    quint8 *pVertexStaging;
 
-    result = m_devFuncs->vkMapMemory(dev, m_vertexStagingMemory, 0, vertexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
+    result = m_devFuncs->vkMapMemory(dev, m_vertexStagingMemory, 0, vertexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pVertexStaging));
     if (result != VK_SUCCESS)
         qDebug("Failed to map vertex staging memory: %d", result);
 
-    memcpy(pStaging, &objVertices, sizeof(objVertices));
+    memcpy(pVertexStaging, &objVertices, sizeof(objVertices));
     m_devFuncs->vkUnmapMemory(dev, m_vertexStagingMemory);
 
 
@@ -210,7 +206,7 @@ void VulkanRayTracer::initComputePipeline()
         .pNext = nullptr,
         .flags = 0,
         .size = sizeof(objIndices),
-        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr
@@ -272,13 +268,13 @@ void VulkanRayTracer::initComputePipeline()
     if (result != VK_SUCCESS)
         qDebug("Failed to bind index staging buffer memory: %d", result);
 
-    quint8 *pStaging;
+    quint8 *pIndexStaging;
 
-    result = m_devFuncs->vkMapMemory(dev, m_indexStagingMemory, 0, indexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
+    result = m_devFuncs->vkMapMemory(dev, m_indexStagingMemory, 0, indexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pIndexStaging));
     if (result != VK_SUCCESS)
         qDebug("Failed to map index staging memory: %d", result);
 
-    memcpy(pStaging, &objIndices, sizeof(objIndices));
+    memcpy(pIndexStaging, &objIndices, sizeof(objIndices));
     m_devFuncs->vkUnmapMemory(dev, m_indexStagingMemory);
 
     /////////////////////////////////////////////////////////////////////
@@ -522,12 +518,80 @@ void VulkanRayTracer::initComputePipeline()
     if (result != VK_SUCCESS)
         qDebug("Failed to begin command buffer: %d", result);
 
+    /////////////////////////////////////////////////////////////////////
+    // Copy vertex staging buffer to vertex buffer
+    /////////////////////////////////////////////////////////////////////
+
+    VkBufferCopy vertexCopyRegion = {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = sizeof(objVertices)
+    };
+
+    m_devFuncs->vkCmdCopyBuffer(cmdBuffer, m_vertexStagingBuffer, m_vertexBuffer, 1, &vertexCopyRegion);
+
+    /////////////////////////////////////////////////////////////////////
+    // Copy index staging buffer to index buffer
+    /////////////////////////////////////////////////////////////////////
+
+    VkBufferCopy indexCopyRegion = {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = sizeof(objIndices)
+    };
+
+    m_devFuncs->vkCmdCopyBuffer(cmdBuffer, m_indexStagingBuffer, m_indexBuffer, 1, &indexCopyRegion);
+
+    /////////////////////////////////////////////////////////////////////
+    // Pipeline barrier to ensure staging buffer copy completes before rendering
+    /////////////////////////////////////////////////////////////////////
+
+    VkBufferMemoryBarrier indexBufferBarrier = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_INDEX_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = m_indexBuffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE
+    };
+
+    VkBufferMemoryBarrier vertexBufferBarrier = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = m_vertexBuffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE
+    };
+
+    VkBufferMemoryBarrier bufferBarriers[] = { indexBufferBarrier, vertexBufferBarrier };
+
+    m_devFuncs->vkCmdPipelineBarrier(
+        cmdBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,         
+        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,    
+        0,
+        0, nullptr,
+        2, bufferBarriers,
+        0, nullptr
+    );
+
+    /////////////////////////////////////////////////////////////////////
+    // Pipeline barrier to ensure image layout transition completes before rendering
+    /////////////////////////////////////////////////////////////////////
+
     VkImageMemoryBarrier imageMemoryBarrierToGeneral
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
         .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .newLayout = VK_IMAGE_LAYOUT_GENERAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -561,7 +625,7 @@ void VulkanRayTracer::initComputePipeline()
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
         .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -611,6 +675,7 @@ void VulkanRayTracer::initComputePipeline()
         qDebug("Failed to wait for compute queue: %d", result);
 
     qDebug() << "VULKANRAYTRACER.CPP after compute write to image";
+    
 }
 
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)

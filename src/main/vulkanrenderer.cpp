@@ -324,7 +324,7 @@ void VulkanRenderer::initResources()
         .mipLevels     = 1,
         .arrayLayers   = 1,
         .samples       = VK_SAMPLE_COUNT_1_BIT,
-        .tiling        = VK_IMAGE_TILING_OPTIMAL,
+        .tiling        = VK_IMAGE_TILING_LINEAR,
         .usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
@@ -1119,7 +1119,7 @@ void VulkanRenderer::startNextFrame()
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
         .pNext = nullptr,
         .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
+        .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT 
     };
 
     m_devFuncs->vkCmdPipelineBarrier(

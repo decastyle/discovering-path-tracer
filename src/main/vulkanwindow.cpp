@@ -74,6 +74,7 @@ VulkanWindow::VulkanWindow()
     
         // You can also enable basic features like samplerAnisotropy here if needed:
         features2.features.samplerAnisotropy = VK_TRUE;
+        features2.features.sampleRateShading = VK_TRUE;
     });
     
 

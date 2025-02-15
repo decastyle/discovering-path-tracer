@@ -114,6 +114,9 @@ void VulkanRayTracer::initComputePipeline()
     PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR =
         (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(dev, "vkGetBufferDeviceAddressKHR");
 
+    PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = 
+        (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(dev, "vkGetAccelerationStructureDeviceAddressKHR");
+
     /////////////////////////////////////////////////////////////////////
     // Create command pool
     /////////////////////////////////////////////////////////////////////
@@ -526,7 +529,7 @@ void VulkanRayTracer::initComputePipeline()
 
 
     /////////////////////////////////////////////////////////////////////
-    // Setup acceleration structures
+    // Setup Bottom Level Acceleration Structure
     /////////////////////////////////////////////////////////////////////
 
     uint32_t primitiveCount = static_cast<uint32_t>(objIndices.size() / 3);
@@ -690,9 +693,9 @@ void VulkanRayTracer::initComputePipeline()
 
 
     // Create scratch buffer
-    VkBuffer scratchBuffer;
+    VkBuffer blasScratchBuffer;
 
-    VkBufferCreateInfo scratchBufferInfo = {
+    VkBufferCreateInfo blasScratchBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -703,48 +706,48 @@ void VulkanRayTracer::initComputePipeline()
         .pQueueFamilyIndices = nullptr
     };
 
-    result = m_devFuncs->vkCreateBuffer(dev, &scratchBufferInfo, nullptr, &scratchBuffer);
+    result = m_devFuncs->vkCreateBuffer(dev, &blasScratchBufferInfo, nullptr, &blasScratchBuffer);
     if (result != VK_SUCCESS)
         qDebug("Failed to create scratch buffer: %d", result);
 
-    VkMemoryRequirements scratchBufferMemoryRequirements;
-    m_devFuncs->vkGetBufferMemoryRequirements(dev, scratchBuffer, &scratchBufferMemoryRequirements);
+    VkMemoryRequirements blasScratchBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, blasScratchBuffer, &blasScratchBufferMemoryRequirements);
 
-    VkMemoryAllocateFlagsInfo scratchBufferAllocFlagsInfo = {
+    VkMemoryAllocateFlagsInfo blasScratchBufferAllocFlagsInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
         .pNext = nullptr,
         .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
         .deviceMask = 1 // This is the default for single GPU setups
     };
 
-    VkMemoryAllocateInfo scratchBufferMemoryAllocateInfo = {
+    VkMemoryAllocateInfo blasScratchBufferMemoryAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = &scratchBufferAllocFlagsInfo,
-        .allocationSize = scratchBufferMemoryRequirements.size,
+        .pNext = &blasScratchBufferAllocFlagsInfo,
+        .allocationSize = blasScratchBufferMemoryRequirements.size,
         .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
     };
 
     VkDeviceMemory scratchMemory;
 
-    result = m_devFuncs->vkAllocateMemory(dev, &scratchBufferMemoryAllocateInfo, nullptr, &scratchMemory);
+    result = m_devFuncs->vkAllocateMemory(dev, &blasScratchBufferMemoryAllocateInfo, nullptr, &scratchMemory);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate scratch memory: %d", result);
 
-    result = m_devFuncs->vkBindBufferMemory(dev, scratchBuffer, scratchMemory, 0);
+    result = m_devFuncs->vkBindBufferMemory(dev, blasScratchBuffer, scratchMemory, 0);
     if (result != VK_SUCCESS)
         qDebug("Failed to bind scratch buffer memory: %d", result);
 
 
-    VkBufferDeviceAddressInfo scratchBufferAddressInfo{
+    VkBufferDeviceAddressInfo blasScratchBufferAddressInfo{
         .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
         .pNext = nullptr,
-        .buffer = scratchBuffer
+        .buffer = blasScratchBuffer
     };
 
-    VkDeviceAddress scratchBufferAddress = vkGetBufferDeviceAddressKHR(dev, &scratchBufferAddressInfo);
+    VkDeviceAddress blasScratchBufferAddress = vkGetBufferDeviceAddressKHR(dev, &blasScratchBufferAddressInfo);
 
     buildInfo.dstAccelerationStructure = blas;
-    buildInfo.scratchData.deviceAddress = scratchBufferAddress;
+    buildInfo.scratchData.deviceAddress = blasScratchBufferAddress;
 
     const VkAccelerationStructureBuildRangeInfoKHR* pRangeInfo = &offsetInfo;
 
@@ -861,6 +864,431 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+    /////////////////////////////////////////////////////////////////////
+    // Setup Top Level Acceleration Structure
+    /////////////////////////////////////////////////////////////////////
+
+    VkAccelerationStructureDeviceAddressInfoKHR blasAddressInfo{
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+        .pNext = nullptr,
+        .accelerationStructure = blas
+    };
+    
+
+    VkDeviceAddress blasDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(dev, &blasAddressInfo);
+
+    std::vector<VkAccelerationStructureInstanceKHR> instances
+    {
+        VkAccelerationStructureInstanceKHR
+        {
+            .transform{
+                .matrix{
+                    { 1.0f, 0.0f, 0.0f, 0.0f },
+                    { 0.0f, 1.0f, 0.0f, 0.0f },
+                    { 0.0f, 0.0f, 1.0f, 0.0f }
+                }
+            },
+            .instanceCustomIndex = 0,
+            .mask = 0xFF,
+            .instanceShaderBindingTableRecordOffset = 0,
+            .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+            .accelerationStructureReference = blasDeviceAddress
+        }
+    };
+
+
+
+
+
+
+
+
+
+
+    VkDeviceSize instanceBufferSize = sizeof(VkAccelerationStructureInstanceKHR) * instances.size();
+
+    VkBuffer instanceBuffer;
+    VkDeviceMemory instanceMemory;
+
+    VkBufferCreateInfo instanceBufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr, 
+        .flags = 0,      
+        .size = instanceBufferSize,
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,  
+        .pQueueFamilyIndices = nullptr 
+    };
+
+
+    result = m_devFuncs->vkCreateBuffer(dev, &instanceBufferInfo, nullptr, &instanceBuffer);
+    if (result != VK_SUCCESS)
+            qDebug("Failed to create instance buffer: %d", result);
+
+    VkMemoryRequirements instanceMemReq;
+    vkGetBufferMemoryRequirements(dev, instanceBuffer, &instanceMemReq);
+
+    VkMemoryAllocateFlagsInfo instanceAllocFlags{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        .pNext = nullptr,
+        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+        .deviceMask = 0
+    };
+
+
+    VkMemoryAllocateInfo instanceAllocInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = &instanceAllocFlags,
+        .allocationSize = instanceMemReq.size,
+        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &instanceAllocInfo, nullptr, &instanceMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate instance memory buffer: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, instanceBuffer, instanceMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind instance buffer: %d", result);
+
+    // Map and copy instance data to GPU
+    void* mappedData;
+    result = m_devFuncs->vkMapMemory(dev, instanceMemory, 0, instanceBufferSize, 0, &mappedData);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to map instance memory: %d", result);
+
+    memcpy(mappedData, instances.data(), instanceBufferSize);
+    m_devFuncs->vkUnmapMemory(dev, instanceMemory);
+
+    // Get Device Address for Instance Buffer
+    VkBufferDeviceAddressInfo instanceBufferAddressInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,\
+        .pNext = nullptr,
+        .buffer = instanceBuffer
+    };
+
+    VkDeviceAddress instanceBufferAddress = vkGetBufferDeviceAddressKHR(dev, &instanceBufferAddressInfo);
+
+
+
+
+
+
+    VkAccelerationStructureGeometryKHR tlasGeometry{
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+        .pNext = nullptr,
+        .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+        .geometry = { .instances = {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+            .pNext = nullptr,
+            .arrayOfPointers = VK_FALSE,
+            .data = { .deviceAddress = instanceBufferAddress }
+        }},
+        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR
+    };
+
+
+    VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo{
+        .sType                    = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+        .pNext                    = nullptr,
+        .type                     = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+        .flags                    = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+        .mode                     = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+        .srcAccelerationStructure = VK_NULL_HANDLE,
+        .dstAccelerationStructure = VK_NULL_HANDLE,
+        .geometryCount            = 1,
+        .pGeometries              = &tlasGeometry,
+        .ppGeometries             = nullptr, 
+        .scratchData              = 0
+    };
+
+
+
+    uint32_t instanceCount = static_cast<uint32_t>(instances.size());
+
+    VkAccelerationStructureBuildSizesInfoKHR tlasSizeInfo{
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+        .pNext = nullptr,
+        .accelerationStructureSize = 0,
+        .updateScratchSize = 0,
+        .buildScratchSize = 0
+    };
+
+
+    vkGetAccelerationStructureBuildSizesKHR(
+        dev,
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &tlasBuildInfo,
+        &instanceCount,
+        &tlasSizeInfo
+    );
+
+
+
+
+
+
+
+
+
+
+
+    VkBuffer tlasBuffer;
+    VkDeviceMemory tlasMemory;
+
+    VkBufferCreateInfo tlasBufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = tlasSizeInfo.accelerationStructureSize,
+        .usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+
+
+    result = m_devFuncs->vkCreateBuffer(dev, &tlasBufferInfo, nullptr, &tlasBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create TLAS buffer: %d", result);
+
+    VkMemoryRequirements tlasMemReq;
+    vkGetBufferMemoryRequirements(dev, tlasBuffer, &tlasMemReq);
+
+    VkMemoryAllocateFlagsInfo tlasAllocFlags{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        .pNext = nullptr,
+        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+        .deviceMask = 0
+    };
+
+
+    VkMemoryAllocateInfo tlasAllocInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = &tlasAllocFlags,
+        .allocationSize = tlasMemReq.size,
+        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &tlasAllocInfo, nullptr, &tlasMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate tlas memory: %d", result);
+    result = m_devFuncs->vkBindBufferMemory(dev, tlasBuffer, tlasMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind tlas memory: %d", result);
+
+    VkAccelerationStructureCreateInfoKHR tlasCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+        .pNext = nullptr,
+        .createFlags = 0,
+        .buffer = tlasBuffer,
+        .offset = 0,
+        .size = tlasSizeInfo.accelerationStructureSize,
+        .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+        .deviceAddress = 0
+    };
+
+
+    VkAccelerationStructureKHR tlas;
+    vkCreateAccelerationStructureKHR(dev, &tlasCreateInfo, nullptr, &tlas);
+
+
+
+
+
+
+
+
+
+    VkBuffer tlasScratchBuffer;
+    VkDeviceMemory tlasScratchMemory;
+
+    VkBufferCreateInfo tlasScratchBufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = tlasSizeInfo.buildScratchSize,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+
+    result = m_devFuncs->vkCreateBuffer(dev, &tlasScratchBufferInfo, nullptr, &tlasScratchBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create tlas scratch buffer: %d", result);
+
+    VkMemoryRequirements tlasScratchMemReq;
+    vkGetBufferMemoryRequirements(dev, tlasScratchBuffer, &tlasScratchMemReq);
+
+    VkMemoryAllocateFlagsInfo tlasScratchAllocFlags{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        .pNext = nullptr,
+        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+        .deviceMask = 0
+    };
+
+
+    VkMemoryAllocateInfo tlasScratchAllocInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = &tlasScratchAllocFlags,
+        .allocationSize = tlasScratchMemReq.size,
+        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &tlasScratchAllocInfo, nullptr, &tlasScratchMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate tlas scratch memory: %d", result);
+    result = m_devFuncs->vkBindBufferMemory(dev, tlasScratchBuffer, tlasScratchMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind tlas scratch memory: %d", result);
+
+    VkBufferDeviceAddressInfo tlasScratchBufferAddressInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = nullptr,
+        .buffer = tlasScratchBuffer
+    };
+
+
+    VkDeviceAddress tlasScratchAddress = vkGetBufferDeviceAddressKHR(dev, &tlasScratchBufferAddressInfo);
+
+
+
+    tlasBuildInfo.dstAccelerationStructure = tlas;
+    tlasBuildInfo.scratchData.deviceAddress = tlasScratchAddress;   
+
+    VkAccelerationStructureBuildRangeInfoKHR tlasRangeInfo{
+        .primitiveCount = instanceCount,
+        .primitiveOffset = 0,
+        .firstVertex = 0,
+        .transformOffset = 0
+    };
+
+
+    const VkAccelerationStructureBuildRangeInfoKHR* tlasRangeInfos[] = { &tlasRangeInfo };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////
+    // Create command buffer (build TLAS)
+    /////////////////////////////////////////////////////////////////////
+
+    {
+        VkCommandBufferAllocateInfo cmdAllocInfo 
+        {
+            .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .pNext              = nullptr,
+            .commandPool        = cmdPool,
+            .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1
+        };
+
+        VkCommandBuffer cmdBuffer;
+        result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to allocate command buffer: %d", result);
+
+        VkCommandBufferBeginInfo beginInfo 
+        {
+            .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext            = nullptr,
+            .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = nullptr
+        };
+        
+        result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to begin command buffer: %d", result);
+        
+        vkCmdBuildAccelerationStructuresKHR(
+            cmdBuffer, 
+            1, 
+            &tlasBuildInfo, 
+            tlasRangeInfos
+        );
+
+        VkMemoryBarrier barrier
+        {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+            .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR
+        };
+
+        vkCmdPipelineBarrier(
+            cmdBuffer,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+            0,
+            1, &barrier,
+            0, nullptr,
+            0, nullptr
+        );
+
+        result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to end command buffer: %d", result);
+
+        VkSubmitInfo submitInfo 
+        {
+            .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext                = nullptr,
+            .waitSemaphoreCount   = 0,
+            .pWaitSemaphores      = nullptr,
+            .pWaitDstStageMask    = nullptr,
+            .commandBufferCount   = 1,
+            .pCommandBuffers      = &cmdBuffer,
+            .signalSemaphoreCount = 0,
+            .pSignalSemaphores    = nullptr
+        };    
+
+        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to submit command buffer to compute queue: %d", result);
+
+        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to wait for compute queue: %d", result);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -963,6 +1391,10 @@ void VulkanRayTracer::initComputePipeline()
         {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .descriptorCount = 1  
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            .descriptorCount = 1
         }
     };
 
@@ -972,7 +1404,7 @@ void VulkanRayTracer::initComputePipeline()
         .pNext = nullptr,
         .flags = 0,
         .maxSets = 1,
-        .poolSizeCount = 1,
+        .poolSizeCount = static_cast<uint32_t>(std::size(descPoolSizes)),
         .pPoolSizes = descPoolSizes
     };
 
@@ -989,6 +1421,13 @@ void VulkanRayTracer::initComputePipeline()
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
             .pImmutableSamplers = nullptr
         },
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        }
     };
 
     VkDescriptorSetLayoutCreateInfo descLayoutInfo 
@@ -996,7 +1435,7 @@ void VulkanRayTracer::initComputePipeline()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 1,
+        .bindingCount = static_cast<uint32_t>(std::size(layoutBinding)),
         .pBindings = layoutBinding
     };
 
@@ -1038,9 +1477,33 @@ void VulkanRayTracer::initComputePipeline()
         .pTexelBufferView = nullptr
     };
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite };
+
+    VkWriteDescriptorSetAccelerationStructureKHR ASWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures    = &tlas
+    };
+
+    VkWriteDescriptorSet accelerationWrite
+    {
+        .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext            = &ASWrite,
+        .dstSet           = m_descSet,
+        .dstBinding       = 1, // Binding 1 is for acceleration structure
+        .dstArrayElement  = 0,
+        .descriptorCount  = 1,
+        .descriptorType   = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+        .pImageInfo       = nullptr,
+        .pBufferInfo      = nullptr,
+        .pTexelBufferView = nullptr
+    };
+
+
+    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , accelerationWrite };
     
-    m_devFuncs->vkUpdateDescriptorSets(dev, 1, descriptorWrites, 0, nullptr);
+    m_devFuncs->vkUpdateDescriptorSets(dev, static_cast<uint32_t>(std::size(descriptorWrites)), descriptorWrites, 0, nullptr);
 
 
 

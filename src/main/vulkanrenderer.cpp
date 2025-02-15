@@ -939,7 +939,7 @@ void VulkanRenderer::initResources()
         .pNext = nullptr,
         .flags = 0,
         .maxSets = static_cast<uint32_t>(concurrentFrameCount),
-        .poolSizeCount = 2,
+        .poolSizeCount = static_cast<uint32_t>(std::size(descPoolSizes)),
         .pPoolSizes = descPoolSizes
     };
 

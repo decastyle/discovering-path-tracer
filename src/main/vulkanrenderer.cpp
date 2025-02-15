@@ -149,8 +149,10 @@ VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
 
 void VulkanRenderer::initResources()
 {
-    QVulkanInstance *inst = m_window->vulkanInstance();
+    VkResult result{};
+
     VkDevice dev = m_window->device();
+
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
     emit m_helper->deviceReady(); // TODO: Better raytracing initialization
@@ -163,7 +165,10 @@ void VulkanRenderer::initResources()
 
     m_devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
 
-    VkResult result{};
+    
+
+
+
 
     const int concurrentFrameCount = m_window->concurrentFrameCount(); 
     qDebug() << "Concurrent frame count:" << concurrentFrameCount;
@@ -172,6 +177,22 @@ void VulkanRenderer::initResources()
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
     const float maxSamplerAnisotropy = pdevLimits->maxSamplerAnisotropy;
     qDebug("Uniform buffer offset alignment is %u", (uint) uniAlign);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /////////////////////////////////////////////////////////////////////
     // Create buffers
@@ -254,6 +275,18 @@ void VulkanRenderer::initResources()
     memcpy(pStaging, vertexData, sizeof(vertexData));
     m_devFuncs->vkUnmapMemory(dev, m_vertexStagingMemory);
 
+
+
+
+
+
+
+
+
+
+
+
+
     // Create uniform buffer
     const VkDeviceSize uniformBufferSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign) + aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign);
 
@@ -308,6 +341,21 @@ void VulkanRenderer::initResources()
         };
     }
     m_devFuncs->vkUnmapMemory(dev, m_uniformMemory);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /////////////////////////////////////////////////////////////////////
     // Create image and image view
@@ -400,10 +448,26 @@ void VulkanRenderer::initResources()
     if (result != VK_SUCCESS)
         qDebug("Failed to create sampler: %d", result);
 
-    /////////////////////////////////////////////////////////////////////
-    // Create command buffer
-    /////////////////////////////////////////////////////////////////////
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    /////////////////////////////////////////////////////////////////////
+    // Create command pool
+    /////////////////////////////////////////////////////////////////////
+    
     VkCommandPoolCreateInfo cmdPoolInfo 
     {
         .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -417,6 +481,22 @@ void VulkanRenderer::initResources()
     result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create command pool: %d", result);
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////
+    // Create command buffer
+    /////////////////////////////////////////////////////////////////////
 
     VkCommandBufferAllocateInfo cmdAllocInfo 
     {
@@ -443,6 +523,9 @@ void VulkanRenderer::initResources()
     result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     if (result != VK_SUCCESS)
         qDebug("Failed to begin command buffer: %d", result);
+
+
+
 
     VkImageMemoryBarrier imageMemoryBarrierToTransferDst
     {
@@ -558,6 +641,26 @@ void VulkanRenderer::initResources()
     result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
     if (result != VK_SUCCESS)
         qDebug("Failed to wait for compute queue: %d", result);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline shader stages
@@ -793,6 +896,27 @@ void VulkanRenderer::initResources()
         .dynamicStateCount = sizeof(dynamicStates) / sizeof(VkDynamicState),
         .pDynamicStates = dynamicStates
     };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
     /////////////////////////////////////////////////////////////////////
     // Set up descriptor set and its layout
@@ -906,6 +1030,20 @@ void VulkanRenderer::initResources()
         m_devFuncs->vkUpdateDescriptorSets(dev, 2, descriptorWrites, 0, nullptr);
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /////////////////////////////////////////////////////////////////////
     // Pipeline layout
     /////////////////////////////////////////////////////////////////////
@@ -981,6 +1119,8 @@ void VulkanRenderer::initResources()
 
     QString info;
     info += QString::asprintf("Number of physical devices: %d\n", int(m_window->availablePhysicalDevices().count()));
+
+    QVulkanInstance *inst = m_window->vulkanInstance();
 
     QVulkanFunctions *f = inst->functions();
     VkPhysicalDeviceProperties props;
@@ -1097,6 +1237,11 @@ void VulkanRenderer::startNextFrame()
 
     VkCommandBuffer cmdBuf = m_window->currentCommandBuffer();
 
+
+
+
+
+
     /////////////////////////////////////////////////////////////////////
     // Copy staging buffer to vertex buffer
     /////////////////////////////////////////////////////////////////////
@@ -1108,6 +1253,8 @@ void VulkanRenderer::startNextFrame()
     };
 
     m_devFuncs->vkCmdCopyBuffer(cmdBuf, m_vertexStagingBuffer, m_vertexBuffer, 1, &copyRegion);
+
+
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline barrier to ensure staging buffer copy completes before rendering
@@ -1214,11 +1361,24 @@ void VulkanRenderer::startNextFrame()
 
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
 
+
+    
+
+
+
+
+
     qint64 m_renderTimeNs = m_renderTimer.nsecsElapsed();
 
     double m_fps = 1e9/(static_cast<double>(m_renderTimeNs));
 
     qDebug() << "Render time:" << m_renderTimeNs / 1.0e6 << "ms, FPS:" << m_fps;
+
+
+
+    
+
+
 
     m_window->frameReady();
     m_window->requestUpdate(); 

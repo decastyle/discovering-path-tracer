@@ -9,6 +9,7 @@
 #include "camera.h"
 #include "vulkanrenderer.h"
 #include "vulkanraytracer.h"
+#include <vulkan/vulkan.h>
 
 class Camera;
 

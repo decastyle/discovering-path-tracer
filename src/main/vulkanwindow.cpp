@@ -8,6 +8,95 @@
 
 VulkanWindow::VulkanWindow()
 {
+
+    this->setEnabledFeaturesModifier([this](VkPhysicalDeviceFeatures2 &features2) {
+        // Create feature structs with the required pNext chain
+        static VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+            .pNext = nullptr,
+            .rayTracingPipeline = VK_TRUE,
+            .rayTracingPipelineShaderGroupHandleCaptureReplay = VK_FALSE,
+            .rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
+            .rayTracingPipelineTraceRaysIndirect = VK_FALSE,
+            .rayTraversalPrimitiveCulling = VK_FALSE
+        };
+    
+        static VkPhysicalDeviceAccelerationStructureFeaturesKHR accelStructureFeatures{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+            .pNext = nullptr,
+            .accelerationStructure = VK_TRUE,
+            .accelerationStructureCaptureReplay = VK_FALSE,
+            .accelerationStructureIndirectBuild = VK_FALSE,
+            .accelerationStructureHostCommands = VK_FALSE,
+            .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE
+        };
+    
+        static VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+            .pNext = nullptr, 
+            .bufferDeviceAddress = VK_TRUE,
+            .bufferDeviceAddressCaptureReplay = VK_FALSE,
+            .bufferDeviceAddressMultiDevice = VK_FALSE
+        };
+
+        static VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+            .pNext = nullptr,
+            .shaderInputAttachmentArrayDynamicIndexing = VK_FALSE,
+            .shaderUniformTexelBufferArrayDynamicIndexing = VK_FALSE,
+            .shaderStorageTexelBufferArrayDynamicIndexing = VK_FALSE,
+            .shaderUniformBufferArrayNonUniformIndexing = VK_FALSE,
+            .shaderSampledImageArrayNonUniformIndexing = VK_FALSE,
+            .shaderStorageBufferArrayNonUniformIndexing = VK_FALSE,
+            .shaderStorageImageArrayNonUniformIndexing = VK_FALSE,
+            .shaderInputAttachmentArrayNonUniformIndexing = VK_FALSE,
+            .shaderUniformTexelBufferArrayNonUniformIndexing = VK_FALSE,
+            .shaderStorageTexelBufferArrayNonUniformIndexing = VK_FALSE,
+            .descriptorBindingUniformBufferUpdateAfterBind = VK_FALSE,
+            .descriptorBindingSampledImageUpdateAfterBind = VK_FALSE,
+            .descriptorBindingStorageImageUpdateAfterBind = VK_FALSE,
+            .descriptorBindingStorageBufferUpdateAfterBind = VK_FALSE,
+            .descriptorBindingUniformTexelBufferUpdateAfterBind = VK_FALSE,
+            .descriptorBindingStorageTexelBufferUpdateAfterBind = VK_FALSE,
+            .descriptorBindingUpdateUnusedWhilePending = VK_FALSE,
+            .descriptorBindingPartiallyBound = VK_TRUE,
+            .descriptorBindingVariableDescriptorCount = VK_FALSE,
+            .runtimeDescriptorArray = VK_TRUE
+        };
+    
+        // Link the pNext chain
+        rayTracingPipelineFeatures.pNext = &accelStructureFeatures;
+        accelStructureFeatures.pNext = &bufferDeviceAddressFeatures;
+        bufferDeviceAddressFeatures.pNext = &descriptorIndexingFeatures;
+    
+        // // Attach the chain to the features2 struct
+        features2.pNext = &rayTracingPipelineFeatures;
+    
+        // You can also enable basic features like samplerAnisotropy here if needed:
+        features2.features.samplerAnisotropy = VK_TRUE;
+    });
+    
+
+    QByteArrayList requiredDeviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
+        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME     
+    };
+
+    this->setDeviceExtensions(requiredDeviceExtensions);
+
+
+
+
+
+
+
+
     QWindow::setCursor(Qt::OpenHandCursor);
     m_camera = new Camera(this);
     
@@ -18,8 +107,7 @@ VulkanWindow::VulkanWindow()
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
     m_renderer = new VulkanRenderer(this);
-    QVulkanInstance* instance = this->vulkanInstance();
-    m_raytracer = new VulkanRayTracer(instance, this);
+    m_raytracer = new VulkanRayTracer(this);
 
 
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);

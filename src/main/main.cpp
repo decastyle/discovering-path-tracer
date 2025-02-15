@@ -53,24 +53,13 @@ int main(int argc, char *argv[])
     QVulkanWindow is a Vulkan-capable QWindow that manages a Vulkan device, a graphics queue, a command pool and buffer, a depth-stencil image and a double-buffered FIFO swapchain, while taking care of correct behavior when it comes to events like resize, special situations like not having a device queue supporting both graphics and presentation, device lost scenarios, and additional functionality like reading the rendered content back. Conceptually it is the counterpart of QOpenGLWindow in the Vulkan world.
     */
 
-    QByteArrayList requiredDeviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
-        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME     
-    };
-
-    vulkanWindow->setDeviceExtensions(requiredDeviceExtensions);
+    
 
     vulkanWindow->setVulkanInstance(&instance);
 
     MainWindow mainWindow(vulkanWindow);
 
-    mainWindow.resize(800, 600);
+    mainWindow.resize(40, 30);
     mainWindow.show();
 
     // Worker and thread setup

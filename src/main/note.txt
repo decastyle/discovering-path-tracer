@@ -1,0 +1,5 @@
+I will have to completely rewrite the Vulkan window, because features such as acceleration structures, device buffer addresses, can't be enabled via QVulkanWindow. It means swapchain, render pass, device functions have to be written, because right now Qt abstracts all of that.
+
+Right now I'm dealing with two separate devices, and that approach has its limitation when it is not possible to copy image to image if both these images were created on separate VkDevice.
+
+Or additional staging buffer for each image can be allocated, vkCmdCopyImageToBuffer invoked, and then whole R32G32B32A32 image data transferred to CPU. Then from CPU it will be transferred again to other staging buffer on other VkDevice, and vkCmdCopyBufferToImage called to transfer texture data.

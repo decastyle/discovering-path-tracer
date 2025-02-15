@@ -18,7 +18,9 @@ VulkanWindow::VulkanWindow()
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
     m_renderer = new VulkanRenderer(this);
-    m_raytracer = new VulkanRayTracer(this);
+    QVulkanInstance* instance = this->vulkanInstance();
+    m_raytracer = new VulkanRayTracer(instance, this);
+
 
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::deviceReady, m_raytracer, &VulkanRayTracer::onDeviceReady);

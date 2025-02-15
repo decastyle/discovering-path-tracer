@@ -19,7 +19,7 @@ class VulkanRayTracer : public QObject
     Q_OBJECT
 
 public:
-    VulkanRayTracer(VulkanWindow *w);
+    VulkanRayTracer(QVulkanInstance* instance, VulkanWindow *w);
     VkImage getStorageImage();
 
 public slots:
@@ -27,6 +27,9 @@ public slots:
 
 private:
     void initComputePipeline();
+
+    QVulkanInstance* m_instance;
+    VkDevice dev;
 
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VulkanWindow *m_window;
@@ -37,6 +40,8 @@ private:
     VkImage m_storageImage = VK_NULL_HANDLE;
     VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
     VkImageView m_storageImageView = VK_NULL_HANDLE;
+    VkBuffer m_storageStagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_storageStagingMemory = VK_NULL_HANDLE;
 
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;

@@ -195,10 +195,18 @@ if(NOT Vulkan_FOUND)
     message(FATAL_ERROR "Vulkan SDK not found. Please set Vulkan_INCLUDE_DIRS and Vulkan_LIBRARIES manually.")
 endif()
 
+# #=================================#
+# # volk configuration
+# #
+# add_subdirectory(external/volk)
+
+# target_link_libraries(${PROJNAME} PRIVATE volk::volk) 
+
 #=================================#
 # For convenient #include of header files
 #
 target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
 #=================================#
 # Platform-specific configuration

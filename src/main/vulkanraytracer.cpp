@@ -4,10 +4,25 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
+
+struct PushConstants {
+    uint32_t sample_batch;
+};
+
+
+PushConstants pushConstants;
+
 static const uint64_t render_width     = 1024;
 static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
+
+
+
+
+
+
+
 
 uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
 {
@@ -25,6 +40,16 @@ uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, 
     
     return UINT32_MAX; 
 }
+
+
+
+
+
+
+
+
+
+
 
 VkShaderModule VulkanRayTracer::createShaderModule(const QString& filename)
 {
@@ -67,13 +92,21 @@ void VulkanRayTracer::onDeviceReady()
 
     if(initialized == 0)
     {
-        initComputePipeline();
+        initRayTracing();
 
         initialized = 1;
     }
 }
 
-void VulkanRayTracer::initComputePipeline()
+
+
+
+
+
+
+
+
+void VulkanRayTracer::initRayTracing()
 {
     VkResult result{};
 
@@ -102,6 +135,7 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR =
         (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(dev, "vkGetAccelerationStructureBuildSizesKHR");
 
@@ -116,6 +150,57 @@ void VulkanRayTracer::initComputePipeline()
 
     PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = 
         (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(dev, "vkGetAccelerationStructureDeviceAddressKHR");
+
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = 
+        (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(dev, "vkCreateRayTracingPipelinesKHR");
+
+
+    PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR =
+        (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetDeviceProcAddr(dev, "vkGetRayTracingShaderGroupHandlesKHR");
+
+    PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR =
+        (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(dev, "vkCmdTraceRaysKHR");
+
+
+
+
+
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtPipelineProperties{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+        .pNext = nullptr,
+        .shaderGroupHandleSize = 0,
+        .maxRayRecursionDepth = 0,
+        .maxShaderGroupStride = 0,
+        .shaderGroupBaseAlignment = 0,
+        .shaderGroupHandleCaptureReplaySize = 0,
+        .maxRayDispatchInvocationCount = 0,
+        .shaderGroupHandleAlignment = 0,
+        .maxRayHitAttributeSize = 0
+    };
+
+    VkPhysicalDeviceProperties2 physicalDeviceProperties
+    {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = &rtPipelineProperties,
+        .properties = {}
+    };
+
+    vkGetPhysicalDeviceProperties2(m_window->physicalDevice(), &physicalDeviceProperties);
+    const VkDeviceSize sbtHeaderSize      = rtPipelineProperties.shaderGroupHandleSize;
+    const VkDeviceSize sbtBaseAlignment   = rtPipelineProperties.shaderGroupBaseAlignment;
+    // const VkDeviceSize sbtHandleAlignment = rtPipelineProperties.shaderGroupHandleAlignment;
+    const VkDeviceSize sbtStride = sbtBaseAlignment *  //
+                                 ((sbtHeaderSize + sbtBaseAlignment - 1) / sbtBaseAlignment);
+
+
+
+
+
+
+
+
+
+    
 
     /////////////////////////////////////////////////////////////////////
     // Create command pool
@@ -175,9 +260,6 @@ void VulkanRayTracer::initComputePipeline()
             objIndices.push_back(index.vertex_index);
         }
     }
-
-
-
 
 
 
@@ -740,7 +822,7 @@ void VulkanRayTracer::initComputePipeline()
 
     VkBufferDeviceAddressInfo blasScratchBufferAddressInfo{
         .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-        .pNext = nullptr,
+        .pNext  = nullptr,
         .buffer = blasScratchBuffer
     };
 
@@ -864,6 +946,22 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /////////////////////////////////////////////////////////////////////
     // Setup Top Level Acceleration Structure
     /////////////////////////////////////////////////////////////////////
@@ -873,7 +971,6 @@ void VulkanRayTracer::initComputePipeline()
         .pNext = nullptr,
         .accelerationStructure = blas
     };
-    
 
     VkDeviceAddress blasDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(dev, &blasAddressInfo);
 
@@ -895,15 +992,6 @@ void VulkanRayTracer::initComputePipeline()
             .accelerationStructureReference = blasDeviceAddress
         }
     };
-
-
-
-
-
-
-
-
-
 
     VkDeviceSize instanceBufferSize = sizeof(VkAccelerationStructureInstanceKHR) * instances.size();
 
@@ -1386,6 +1474,8 @@ void VulkanRayTracer::initComputePipeline()
     // Set up descriptor set and its layout
     /////////////////////////////////////////////////////////////////////
 
+
+
     VkDescriptorPoolSize descPoolSizes[]
     {
         {
@@ -1395,7 +1485,15 @@ void VulkanRayTracer::initComputePipeline()
         {
             .type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
             .descriptorCount = 1
-        }
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1  
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1  
+        },
     };
 
     VkDescriptorPoolCreateInfo descPoolInfo 
@@ -1412,22 +1510,44 @@ void VulkanRayTracer::initComputePipeline()
     if (result != VK_SUCCESS)
         qDebug("Failed to create descriptor pool: %d", result);
 
+
+
+
+    // Here's the list of bindings for the descriptor set layout, from raytrace.comp.glsl:
+    // 0 - a storage image (the image `image`)
+    // 1 - an acceleration structure (the TLAS)
+    // 2 - a storage buffer (the vertex buffer)
+    // 3 - a storage buffer (the index buffer)
     VkDescriptorSetLayoutBinding layoutBinding[] 
     {
         {
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
             .pImmutableSamplers = nullptr
         },
         {
             .binding = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
             .pImmutableSamplers = nullptr
-        }
+        },
+        {
+            .binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+            .pImmutableSamplers = nullptr
+        },
+        {
+            .binding = 3,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+            .pImmutableSamplers = nullptr
+        },
     };
 
     VkDescriptorSetLayoutCreateInfo descLayoutInfo 
@@ -1455,6 +1575,10 @@ void VulkanRayTracer::initComputePipeline()
     result = m_devFuncs->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descSet);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate descriptor set: %d", result);
+
+
+
+
     
     VkDescriptorImageInfo descImageInfo 
     {
@@ -1500,8 +1624,57 @@ void VulkanRayTracer::initComputePipeline()
         .pTexelBufferView = nullptr
     };
 
+    VkDescriptorBufferInfo vertexDescriptorBufferInfo
+    {
+        .buffer = m_vertexBuffer, 
+        .offset = 0,
+        .range = VK_WHOLE_SIZE
+    };
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , accelerationWrite };
+    VkWriteDescriptorSet vertexWrite
+    {
+        .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext            = nullptr,
+        .dstSet           = m_descSet,
+        .dstBinding       = 2, // Binding 2 is for vertex data
+        .dstArrayElement  = 0,
+        .descriptorCount  = 1,
+        .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo       = nullptr,
+        .pBufferInfo      = &vertexDescriptorBufferInfo,
+        .pTexelBufferView = nullptr
+    };
+
+
+    VkDescriptorBufferInfo indexDescriptorBufferInfo
+    {
+        .buffer = m_indexBuffer, 
+        .offset = 0,
+        .range = VK_WHOLE_SIZE
+    };
+
+    VkWriteDescriptorSet indexWrite
+    {
+        .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext            = nullptr,
+        .dstSet           = m_descSet,
+        .dstBinding       = 3, // Binding 3 is for index data
+        .dstArrayElement  = 0,
+        .descriptorCount  = 1,
+        .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo       = nullptr,
+        .pBufferInfo      = &indexDescriptorBufferInfo,
+        .pTexelBufferView = nullptr
+    };
+
+
+
+    VkWriteDescriptorSet descriptorWrites[] = { 
+        storageImageWrite, // 0 binding
+        accelerationWrite, // 1 binding
+        vertexWrite,       // 2 binding
+        indexWrite         // 3 binding
+    };
     
     m_devFuncs->vkUpdateDescriptorSets(dev, static_cast<uint32_t>(std::size(descriptorWrites)), descriptorWrites, 0, nullptr);
 
@@ -1525,21 +1698,55 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+
+
+
     /////////////////////////////////////////////////////////////////////
-    // Create compute pipeline
+    // Create shader binding table (SBT) and ray tracing pipeline
     /////////////////////////////////////////////////////////////////////
 
-    VkShaderModule rayTraceModule = createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
+    VkShaderModule rayGenModule = createShaderModule(QStringLiteral(":/raytrace_rgen.spv"));
 
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfo 
-    {
+    std::array<VkPipelineShaderStageCreateInfo, 1> stages;
+
+    stages[0] = {
         .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext               = nullptr,
         .flags               = 0,                
-        .stage               = VK_SHADER_STAGE_COMPUTE_BIT,
-        .module              = rayTraceModule,
+        .stage               = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        .module              = rayGenModule,
         .pName               = "main",
         .pSpecializationInfo = nullptr            
+    };
+
+
+
+
+
+
+
+    std::array<VkRayTracingShaderGroupCreateInfoKHR, 1> groups;
+
+
+    groups[0] = {
+        .sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+        .pNext              = nullptr,
+        .type               = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+        .generalShader      = 0,     
+        .closestHitShader   = VK_SHADER_UNUSED_KHR,   
+        .anyHitShader       = VK_SHADER_UNUSED_KHR,  
+        .intersectionShader = VK_SHADER_UNUSED_KHR,
+        .pShaderGroupCaptureReplayHandle = VK_NULL_HANDLE
+    };  
+
+
+    
+
+    VkPushConstantRange pushConstantRange
+    {
+        .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR, 
+        .offset     = 0,  
+        .size       = sizeof(PushConstants)
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo 
@@ -1549,26 +1756,33 @@ void VulkanRayTracer::initComputePipeline()
         .flags                  = 0,
         .setLayoutCount         = 1,
         .pSetLayouts            = &m_descSetLayout,  
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges    = nullptr
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges    = &pushConstantRange
     };
     
-    result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_computePipelineLayout);
+    result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_raytracingPipelineLayout);
     if (result != VK_SUCCESS)
         qDebug("Failed to create pipeline layout: %d", result);
 
-    VkComputePipelineCreateInfo pipelineCreateInfo 
+    VkRayTracingPipelineCreateInfoKHR pipelineCreateInfo 
     {
-        .sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .sType              = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
         .pNext              = nullptr,
         .flags              = 0,
-        .stage              = shaderStageCreateInfo,
-        .layout             = m_computePipelineLayout,
+        .stageCount         = static_cast<uint32_t>(stages.size()),
+        .pStages            = stages.data(),
+        .groupCount                   = static_cast<uint32_t>(groups.size()),
+        .pGroups                      = groups.data(),
+        .maxPipelineRayRecursionDepth = 1, 
+        .pLibraryInfo       = VK_NULL_HANDLE,
+        .pLibraryInterface  = VK_NULL_HANDLE,
+        .pDynamicState      = VK_NULL_HANDLE,
+        .layout             = m_raytracingPipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex  = -1
     };
-
-    result = m_devFuncs->vkCreateComputePipelines(dev, m_computePipelineCache, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
+    
+    vkCreateRayTracingPipelinesKHR(dev, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_raytracingPipeline);
     if (result != VK_SUCCESS)
         qDebug("Failed to create compute pipeline: %d", result);
 
@@ -1578,6 +1792,10 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+    std::vector<uint8_t> cpuShaderHandleStorage(sbtHeaderSize * groups.size());
+    vkGetRayTracingShaderGroupHandlesKHR(dev, m_raytracingPipeline, 0, static_cast<uint32_t>(groups.size()), cpuShaderHandleStorage.size(), cpuShaderHandleStorage.data()); 
+
+    const uint32_t sbtSize = static_cast<uint32_t>(sbtStride * groups.size());
 
 
 
@@ -1587,15 +1805,110 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+    /////////////////////////////////////////////////////////////////////
+    // Create SBT buffer
+    /////////////////////////////////////////////////////////////////////
+
+    VkBuffer SBTBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory SBTMemory = VK_NULL_HANDLE;
+
+    // Create SBT buffer
+    VkBufferCreateInfo SBTBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = sbtSize,
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr
+    };
+
+    result = m_devFuncs->vkCreateBuffer(dev, &SBTBufferInfo, nullptr, &SBTBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create SBT buffer: %d", result);
+
+    VkMemoryRequirements SBTBufferMemoryRequirements;
+    m_devFuncs->vkGetBufferMemoryRequirements(dev, SBTBuffer, &SBTBufferMemoryRequirements);
+    
+    VkMemoryAllocateFlagsInfo SBTAllocFlags{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        .pNext = nullptr,
+        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+        .deviceMask = 0
+    };
+
+    VkMemoryAllocateInfo SBTBufferMemoryAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = &SBTAllocFlags,
+        .allocationSize = SBTBufferMemoryRequirements.size,
+        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+    };
+
+    result = m_devFuncs->vkAllocateMemory(dev, &SBTBufferMemoryAllocateInfo, nullptr, &SBTMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate SBT memory: %d", result);
+
+    result = m_devFuncs->vkBindBufferMemory(dev, SBTBuffer, SBTMemory, 0);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to bind SBT buffer memory: %d", result);
+
+    
+
+    quint8 *pSBT;
+
+    result = m_devFuncs->vkMapMemory(dev, SBTMemory, 0, SBTBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pSBT));
+    if (result != VK_SUCCESS)
+        qDebug("Failed to map SBT memory: %d", result);
+
+    for(size_t groupIndex = 0; groupIndex < groups.size(); groupIndex++)
+    {
+      memcpy(&pSBT[groupIndex * sbtStride], &cpuShaderHandleStorage[groupIndex * sbtHeaderSize], sbtHeaderSize);
+    }
+
+    m_devFuncs->vkUnmapMemory(dev, SBTMemory);
 
 
 
+    VkStridedDeviceAddressRegionKHR sbtRayGenRegion, sbtMissRegion, sbtHitRegion, sbtCallableRegion;
 
+    VkBufferDeviceAddressInfo SBTBufferAddressInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = nullptr,
+        .buffer = SBTBuffer
+    };
+
+
+    VkDeviceAddress sbtStartAddress = vkGetBufferDeviceAddressKHR(dev, &SBTBufferAddressInfo);
+
+
+    {
+        // The ray generation shader region:
+        sbtRayGenRegion.deviceAddress = sbtStartAddress;  // Starts here
+        sbtRayGenRegion.stride        = sbtStride;        // Uses this stride
+        sbtRayGenRegion.size          = sbtStride;        // Is this number of bytes long (1 group)
+
+        sbtMissRegion      = sbtRayGenRegion;  // The miss shader region:
+        sbtMissRegion.size = 0;                // Is empty
+
+        sbtHitRegion      = sbtRayGenRegion;  // The hit group region:
+        sbtHitRegion.size = 0;                // Is empty
+
+        sbtCallableRegion      = sbtRayGenRegion;  // The callable shader region:
+        sbtCallableRegion.size = 0;                // Is empty
+    }
+
+
+
+    const uint32_t NUM_SAMPLE_BATCHES = 2;
 
 
     /////////////////////////////////////////////////////////////////////
     // Create command buffer (dispatch compute pipeline and write to image)
     /////////////////////////////////////////////////////////////////////
+
+
+
 
     {
         VkCommandBufferAllocateInfo cmdAllocInfo 
@@ -1623,12 +1936,6 @@ void VulkanRayTracer::initComputePipeline()
         result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
         if (result != VK_SUCCESS)
             qDebug("Failed to begin command buffer: %d", result);
-
-
-
-
-
-
 
 
 
@@ -1667,55 +1974,145 @@ void VulkanRayTracer::initComputePipeline()
 
 
 
+        result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to end command buffer: %d", result);
 
-
-
-
-
-        m_devFuncs->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
-
-        m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_descSet, 0, nullptr);
-
-        m_devFuncs->vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
-                    (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
-
-
-
-
-
-
-
-
-
-
-        VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+        VkSubmitInfo submitInfo 
         {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = m_storageImage,
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
-        };  
+            .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext                = nullptr,
+            .waitSemaphoreCount   = 0,
+            .pWaitSemaphores      = nullptr,
+            .pWaitDstStageMask    = nullptr,
+            .commandBufferCount   = 1,
+            .pCommandBuffers      = &cmdBuffer,
+            .signalSemaphoreCount = 0,
+            .pSignalSemaphores    = nullptr
+        };    
 
-        m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0, nullptr,
-        0, nullptr, 
-        1, &imageMemoryBarrierToTransferSrc);   
+        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to submit command buffer to compute queue: %d", result);
 
+        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to wait for compute queue: %d", result);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
+    {
+        VkCommandBufferAllocateInfo cmdAllocInfo 
+        {
+            .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .pNext              = nullptr,
+            .commandPool        = cmdPool,
+            .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1
+        };
+
+        VkCommandBuffer cmdBuffer;
+        result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to allocate command buffer: %d", result);
+
+        VkCommandBufferBeginInfo beginInfo 
+        {
+            .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext            = nullptr,
+            .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = nullptr
+        };
+        
+        result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to begin command buffer: %d", result);
+
+
+
+
+
+
+
+
+        m_devFuncs->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_raytracingPipeline);
+
+        m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_raytracingPipelineLayout, 0, 1, &m_descSet, 0, nullptr);
+
+
+
+
+
+        pushConstants.sample_batch = sampleBatch;
+        vkCmdPushConstants(cmdBuffer,                               // Command buffer
+                       m_raytracingPipelineLayout,           // Pipeline layout
+                       VK_SHADER_STAGE_RAYGEN_BIT_KHR,          // Stage flags
+                       0,                                       // Offset
+                       sizeof(PushConstants),                   // Size in bytes
+                       &pushConstants);                         // Data
+
+
+        vkCmdTraceRaysKHR(cmdBuffer,           // Command buffer
+                      &sbtRayGenRegion,    // Region of memory with ray generation groups
+                      &sbtMissRegion,      // Region of memory with miss groups
+                      &sbtHitRegion,       // Region of memory with hit groups
+                      &sbtCallableRegion,  // Region of memory with callable groups
+                      render_width,        // Width of dispatch
+                      render_height,       // Height of dispatch
+                      1);                  // Depth of dispatch
+
+
+
+        if(sampleBatch == NUM_SAMPLE_BATCHES - 1)
+        {
+            VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+            {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = m_storageImage,
+                .subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                }
+            };  
+
+            m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr, 
+            1, &imageMemoryBarrierToTransferSrc);   
+        }
 
 
 
@@ -1746,6 +2143,8 @@ void VulkanRayTracer::initComputePipeline()
         result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
         if (result != VK_SUCCESS)
             qDebug("Failed to wait for compute queue: %d", result);
+
+        qDebug("Rendered sample batch index %d.\n", sampleBatch);
     }
 
     qDebug() << "VULKANRAYTRACER.CPP after compute write to image";

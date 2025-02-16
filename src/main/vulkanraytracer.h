@@ -26,7 +26,7 @@ public slots:
     void onDeviceReady(); // TODO: Find a better way to initialize device (right now ray-tracer waits for renderer to initialize it through QVulkanWindow)
 
 private:
-    void initComputePipeline();
+    void initRayTracing();
 
     QVulkanInstance* m_instance;
 
@@ -54,9 +54,9 @@ private:
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet m_descSet = VK_NULL_HANDLE;
 
-    VkPipelineCache m_computePipelineCache = VK_NULL_HANDLE;
-    VkPipelineLayout m_computePipelineLayout = VK_NULL_HANDLE;
-    VkPipeline m_computePipeline = VK_NULL_HANDLE;
+    VkPipelineCache m_raytracingPipelineCache = VK_NULL_HANDLE;
+    VkPipelineLayout m_raytracingPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline m_raytracingPipeline = VK_NULL_HANDLE;
 };
 
 

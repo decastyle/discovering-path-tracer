@@ -123,6 +123,7 @@ file(GLOB_RECURSE GLSL_FILES # i can't stop lol
     src/shaders/*.vert
     src/shaders/*.comp
     src/shaders/*.glsl
+    src/shaders/*.rgen
 )
 
 set(SPV_FILES "")
@@ -133,19 +134,29 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
     set(SPV_FILE "${CMAKE_SOURCE_DIR}/src/shaders/${FILE_NAME}.spv")
     message(STATUS "${SPV_FILE}")
 
+    message(STATUS "Compiling ${GLSL_FILE} with:")
+    message(STATUS "${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V --target-env ${VULKAN_TARGET_ENV} --verbose ${GLSL_FILE} -o ${SPV_FILE}")
+
+
     # I love you glslangValidator
     execute_process(
-        COMMAND glslangValidator -V ${GLSL_FILE} -o ${SPV_FILE}
+        COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} 
+        -V 
+        --target-env ${VULKAN_TARGET_ENV}
+    
+        ${GLSL_FILE} -o ${SPV_FILE}
         RESULT_VARIABLE COMPILE_RESULT
         OUTPUT_VARIABLE COMPILE_OUTPUT
         ERROR_VARIABLE COMPILE_ERROR
+        COMMAND_ECHO STDOUT
     )
 
     if(NOT COMPILE_RESULT EQUAL 0)
-        message(FATAL_ERROR "Shader compilation failed for ${GLSL_FILE}:\n${COMPILE_ERROR}")
+        message(FATAL_ERROR "Shader compilation failed for ${GLSL_FILE}:\n${COMPILE_OUTPUT}\n${COMPILE_ERROR}")
     else()
-        message(STATUS "Compiled ${GLSL_FILE} -> ${SPV_FILE}")
+        message(STATUS "Compiled ${GLSL_FILE} -> ${SPV_FILE}\n${COMPILE_OUTPUT}")
     endif()
+
 
     list(APPEND SPV_FILES ${SPV_FILE})
 endforeach()

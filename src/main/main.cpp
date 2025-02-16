@@ -21,17 +21,19 @@ int main(int argc, char *argv[])
     // volkInitialize();
 
     QVulkanInstance instance;
+    
+    instance.setApiVersion(QVersionNumber(1, 4));
 
-    instance.setExtensions({
-        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, 
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,       
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,         
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,             
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,          
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
-        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
-    });
+    // instance.setExtensions({
+    //     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, 
+    //     VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,       
+    //     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,         
+    //     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,             
+    //     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,          
+    //     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
+    //     VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+    //     VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
+    // });
 
 
     if(DEBUG) 

@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     // volkInitialize();
 
     QVulkanInstance instance;
-    
+
     instance.setApiVersion(QVersionNumber(1, 4));
 
     // instance.setExtensions({
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
     MainWindow mainWindow(vulkanWindow);
 
-    mainWindow.resize(40, 30);
+    mainWindow.resize(800, 600);
     mainWindow.show();
 
     // Worker and thread setup

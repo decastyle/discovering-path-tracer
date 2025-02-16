@@ -63,11 +63,18 @@ VulkanWindow::VulkanWindow()
             .descriptorBindingVariableDescriptorCount = VK_FALSE,
             .runtimeDescriptorArray = VK_TRUE
         };
+
+        static VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
+            .pNext = nullptr,
+            .scalarBlockLayout = VK_TRUE,
+        };
     
         // Link the pNext chain
         rayTracingPipelineFeatures.pNext = &accelStructureFeatures;
         accelStructureFeatures.pNext = &bufferDeviceAddressFeatures;
         bufferDeviceAddressFeatures.pNext = &descriptorIndexingFeatures;
+        descriptorIndexingFeatures.pNext = &scalarBlockLayoutFeatures;
     
         // // Attach the chain to the features2 struct
         features2.pNext = &rayTracingPipelineFeatures;

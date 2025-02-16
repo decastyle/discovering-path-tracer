@@ -3,11 +3,9 @@
 #include "vulkanraytracer.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
+#include "common.h"
 
 
-struct PushConstants {
-    uint32_t sample_batch;
-};
 
 
 PushConstants pushConstants;
@@ -1705,16 +1703,40 @@ void VulkanRayTracer::initRayTracing()
     // Create shader binding table (SBT) and ray tracing pipeline
     /////////////////////////////////////////////////////////////////////
 
-    VkShaderModule rayGenModule = createShaderModule(QStringLiteral(":/raytrace_rgen.spv"));
+    // VkShaderModule rayGenModule = createShaderModule(QStringLiteral(":/raytrace_rgen.spv"));
 
-    std::array<VkPipelineShaderStageCreateInfo, 1> stages;
+    const size_t                                      NUM_C_HIT_SHADERS = 1;
+    std::array<VkShaderModule, 2 + NUM_C_HIT_SHADERS> modules;
+    modules[0] = createShaderModule(QStringLiteral(":/raytrace_rgen.spv"));
+    modules[1] = createShaderModule(QStringLiteral(":/raytrace_rmiss.spv"));
+    modules[2] = createShaderModule(QStringLiteral(":/material0_rchit.spv"));
+
+    std::array<VkPipelineShaderStageCreateInfo, 2 + NUM_C_HIT_SHADERS> stages;
 
     stages[0] = {
         .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext               = nullptr,
         .flags               = 0,                
         .stage               = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        .module              = rayGenModule,
+        .module              = modules[0],
+        .pName               = "main",
+        .pSpecializationInfo = nullptr            
+    };
+    stages[1] = {
+        .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext               = nullptr,
+        .flags               = 0,                
+        .stage               = VK_SHADER_STAGE_MISS_BIT_KHR,
+        .module              = modules[1],
+        .pName               = "main",
+        .pSpecializationInfo = nullptr            
+    };
+    stages[2] = {
+        .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext               = nullptr,
+        .flags               = 0,                
+        .stage               = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+        .module              = modules[2],
         .pName               = "main",
         .pSpecializationInfo = nullptr            
     };
@@ -1725,7 +1747,7 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-    std::array<VkRayTracingShaderGroupCreateInfoKHR, 1> groups;
+    std::array<VkRayTracingShaderGroupCreateInfoKHR, 2 + NUM_C_HIT_SHADERS> groups;
 
 
     groups[0] = {
@@ -1734,6 +1756,27 @@ void VulkanRayTracer::initRayTracing()
         .type               = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
         .generalShader      = 0,     
         .closestHitShader   = VK_SHADER_UNUSED_KHR,   
+        .anyHitShader       = VK_SHADER_UNUSED_KHR,  
+        .intersectionShader = VK_SHADER_UNUSED_KHR,
+        .pShaderGroupCaptureReplayHandle = VK_NULL_HANDLE
+    };  
+
+    groups[1] = {
+        .sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+        .pNext              = nullptr,
+        .type               = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+        .generalShader      = 1,     
+        .closestHitShader   = VK_SHADER_UNUSED_KHR,   
+        .anyHitShader       = VK_SHADER_UNUSED_KHR,  
+        .intersectionShader = VK_SHADER_UNUSED_KHR,
+        .pShaderGroupCaptureReplayHandle = VK_NULL_HANDLE
+    };  
+    groups[2] = {
+        .sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+        .pNext              = nullptr,
+        .type               = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+        .generalShader      = VK_SHADER_UNUSED_KHR,     
+        .closestHitShader   = 2,   
         .anyHitShader       = VK_SHADER_UNUSED_KHR,  
         .intersectionShader = VK_SHADER_UNUSED_KHR,
         .pShaderGroupCaptureReplayHandle = VK_NULL_HANDLE
@@ -1771,8 +1814,8 @@ void VulkanRayTracer::initRayTracing()
         .flags              = 0,
         .stageCount         = static_cast<uint32_t>(stages.size()),
         .pStages            = stages.data(),
-        .groupCount                   = static_cast<uint32_t>(groups.size()),
-        .pGroups                      = groups.data(),
+        .groupCount         = static_cast<uint32_t>(groups.size()),
+        .pGroups            = groups.data(),
         .maxPipelineRayRecursionDepth = 1, 
         .pLibraryInfo       = VK_NULL_HANDLE,
         .pLibraryInterface  = VK_NULL_HANDLE,
@@ -1886,13 +1929,15 @@ void VulkanRayTracer::initRayTracing()
         // The ray generation shader region:
         sbtRayGenRegion.deviceAddress = sbtStartAddress;  // Starts here
         sbtRayGenRegion.stride        = sbtStride;        // Uses this stride
-        sbtRayGenRegion.size          = sbtStride;        // Is this number of bytes long (1 group)
+        sbtRayGenRegion.size          = sbtStride;        
 
         sbtMissRegion      = sbtRayGenRegion;  // The miss shader region:
-        sbtMissRegion.size = 0;                // Is empty
+        sbtMissRegion.deviceAddress = sbtStartAddress + sbtStride;  // Starts sbtStride bytes (1 group) in
+        sbtMissRegion.size          = sbtStride;         
 
         sbtHitRegion      = sbtRayGenRegion;  // The hit group region:
-        sbtHitRegion.size = 0;                // Is empty
+        sbtHitRegion.deviceAddress = sbtStartAddress + 2 * sbtStride;  // Starts 2 * sbtStride bytes (2 groups) in
+        sbtHitRegion.size          = sbtStride * NUM_C_HIT_SHADERS;              
 
         sbtCallableRegion      = sbtRayGenRegion;  // The callable shader region:
         sbtCallableRegion.size = 0;                // Is empty
@@ -1900,7 +1945,7 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-    const uint32_t NUM_SAMPLE_BATCHES = 2;
+    const uint32_t NUM_SAMPLE_BATCHES = 32;
 
 
     /////////////////////////////////////////////////////////////////////

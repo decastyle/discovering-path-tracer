@@ -124,6 +124,8 @@ file(GLOB_RECURSE GLSL_FILES # i can't stop lol
     src/shaders/*.comp
     src/shaders/*.glsl
     src/shaders/*.rgen
+    src/shaders/*.rmiss
+    src/shaders/*.rchit
 )
 
 set(SPV_FILES "")
@@ -135,7 +137,7 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
     message(STATUS "${SPV_FILE}")
 
     message(STATUS "Compiling ${GLSL_FILE} with:")
-    message(STATUS "${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V --target-env ${VULKAN_TARGET_ENV} --verbose ${GLSL_FILE} -o ${SPV_FILE}")
+    message(STATUS "${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V --target-env ${VULKAN_TARGET_ENV} ${GLSL_FILE} -o ${SPV_FILE}")
 
 
     # I love you glslangValidator
@@ -143,7 +145,6 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
         COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} 
         -V 
         --target-env ${VULKAN_TARGET_ENV}
-    
         ${GLSL_FILE} -o ${SPV_FILE}
         RESULT_VARIABLE COMPILE_RESULT
         OUTPUT_VARIABLE COMPILE_OUTPUT

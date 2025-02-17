@@ -1945,6 +1945,31 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const uint32_t NUM_SAMPLE_BATCHES = 32;
 
 
@@ -2051,6 +2076,14 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+
+
+
+
+
+
+
+    
 
 
 

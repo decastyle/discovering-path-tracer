@@ -35,6 +35,7 @@ public:
     VulkanRendererHelper *m_helper;
 
 protected:
+    void onCopySampledImage();
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
 
@@ -50,10 +51,15 @@ protected:
     VkBuffer m_uniformBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_uniformMemory = VK_NULL_HANDLE;
     VkDescriptorBufferInfo m_uniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkDescriptorImageInfo descImageInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
 
-    VkImage m_renderImage;
-    VkDeviceMemory m_renderImageMemory;
-    VkImageView m_renderImageView;
+    VkImage m_stagingImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_stagingImageMemory = VK_NULL_HANDLE;
+    VkImageView m_stagingImageView = VK_NULL_HANDLE;
+
+    VkImage m_renderImage[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkDeviceMemory m_renderImageMemory[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkImageView m_renderImageView[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
 
     VkSampler m_textureSampler;
 
@@ -66,6 +72,8 @@ protected:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
     VkQueue m_computeQueue;
+
+    VkCommandPool m_cmdPool;
 
     QElapsedTimer m_renderTimer;
     float m_renderTimeNs = 0.0f;

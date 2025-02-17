@@ -14,57 +14,57 @@ static const uint32_t workgroup_height = 16;
 
 // static float vertexData[] = {
 //     // Position (x, y, z)  // Normal (nx, ny, nz) // UV (u, v)
-
+//
 //     // Front face (Z = 1.0f)
 //     -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
 //      0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
 //      0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
-
+//
 //      0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
 //     -0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
 //     -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
-
+//
 //     // Back face (Z = -1.0f)
 //     -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 0.0f,
 //      0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f,
 //      0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 0.0f,
-
+//
 //      0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f,
 //     -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 0.0f,
 //     -0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 1.0f,
-
+//
 //     // Left face (X = -1.0f)
 //     -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
 //     -0.5f, -0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 0.0f,
 //     -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
-
+//
 //     -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
 //     -0.5f,  0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 1.0f,
 //     -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
-
+//
 //     // Right face (X = 1.0f)
 //      0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
 //      0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
 //      0.5f, -0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 0.0f,
-
+//
 //      0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
 //      0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
 //      0.5f,  0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 1.0f,
-
+//
 //     // Top face (Y = 1.0f)
 //     -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 0.0f,
 //      0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 1.0f,
 //      0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 0.0f,
-
+//
 //      0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 1.0f,
 //     -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 0.0f,
 //     -0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f,
-
+//
 //     // Bottom face (Y = -1.0f)
 //     -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 0.0f,
 //      0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f,
 //      0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 1.0f,
-
+//
 //      0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 1.0f,
 //     -0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 1.0f,
 //     -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 0.0f,
@@ -125,13 +125,13 @@ VulkanRenderer::VulkanRenderer(VulkanWindow *w)
 
 VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
 {
-    VkShaderModule shaderModule;
-
+    VkShaderModule shaderModule = VK_NULL_HANDLE;
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning("Failed to read shader %s", qPrintable(filename));
-        shaderModule = VK_NULL_HANDLE;
+        return shaderModule;
     }
+
     QByteArray blob = file.readAll();
     file.close();
 
@@ -143,8 +143,8 @@ VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
         .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
     };
 
-
     VkResult result = m_devFuncs->vkCreateShaderModule(m_window->device(), &shaderInfo, nullptr, &shaderModule);
+
     if (result != VK_SUCCESS) 
     {
         qWarning("Failed to create shader module: %d", result);
@@ -157,6 +157,193 @@ VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
 
     return shaderModule;
 }
+
+void VulkanRenderer::onCopySampledImage()
+{
+    VkResult result{};
+
+    VkDevice dev = m_window->device();
+
+    /////////////////////////////////////////////////////////////////////
+    // Create command buffer
+    /////////////////////////////////////////////////////////////////////
+
+    VkCommandBufferAllocateInfo cmdAllocInfo 
+    {
+        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext              = nullptr,
+        .commandPool        = m_cmdPool,
+        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    VkCommandBuffer cmdBuffer;
+    result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate command buffer: %d", result);
+
+    VkCommandBufferBeginInfo beginInfo 
+    {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext            = nullptr,
+        .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = nullptr
+    };
+    
+    result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to begin command buffer: %d", result);
+
+
+
+    VkImageMemoryBarrier imageMemoryBarrierToTransferDst
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_stagingImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToTransferDst);   
+
+
+
+    VkImageCopy copyRegion
+    {
+        .srcSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .srcOffset = {0, 0, 0},
+        .dstSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .dstOffset = {0, 0, 0},
+        .extent = {
+            .width = render_width,
+            .height = render_height,
+            .depth = 1
+        }
+    };
+
+    VulkanRayTracer *raytracer = m_window->getVulkanRayTracer();
+    VkImage storageImage = raytracer->getStorageImage(); 
+
+    m_devFuncs->vkCmdCopyImage(
+        cmdBuffer, 
+        storageImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        m_stagingImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        1, &copyRegion);
+    
+
+    VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_stagingImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToTransferSrc);
+
+    result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to end command buffer: %d", result);
+
+    VkSubmitInfo submitInfo 
+    {
+        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext                = nullptr,
+        .waitSemaphoreCount   = 0,
+        .pWaitSemaphores      = nullptr,
+        .pWaitDstStageMask    = nullptr,
+        .commandBufferCount   = 1,
+        .pCommandBuffers      = &cmdBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores    = nullptr
+    };   
+
+    result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to submit command buffer to compute queue: %d", result);
+
+    result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to wait for compute queue: %d", result);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void VulkanRenderer::initResources()
 {
@@ -242,6 +429,15 @@ void VulkanRenderer::initResources()
     result = m_devFuncs->vkBindBufferMemory(dev, m_vertexBuffer, m_vertexMemory, 0);
     if (result != VK_SUCCESS)
         qDebug("Failed to bind vertex buffer memory: %d", result);
+
+
+
+
+
+
+
+
+
 
     // Create staging buffer
     VkBufferCreateInfo vertexStagingBufferInfo = {
@@ -334,6 +530,9 @@ void VulkanRenderer::initResources()
     if (result != VK_SUCCESS)
         qDebug("Failed to bind uniform buffer memory: %d", result);
 
+
+
+
     quint8 *pUniform;
     result = m_devFuncs->vkMapMemory(dev, m_uniformMemory, 0, uniformBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pUniform));
     if (result != VK_SUCCESS)
@@ -369,8 +568,10 @@ void VulkanRenderer::initResources()
 
 
     /////////////////////////////////////////////////////////////////////
-    // Create image and image view
+    // Create one staging image and its view,
+    // along with two render images and their views.
     /////////////////////////////////////////////////////////////////////
+
 
     VkImageCreateInfo imageInfo 
     {
@@ -379,11 +580,15 @@ void VulkanRenderer::initResources()
         .flags         = 0,
         .imageType     = VK_IMAGE_TYPE_2D,
         .format        = VK_FORMAT_R32G32B32A32_SFLOAT,  // 4-component float format
-        .extent        = { render_width, render_height, 1 },
+        .extent        = {
+            .width = render_width,
+            .height = render_height,
+            .depth = 1
+        },
         .mipLevels     = 1,
         .arrayLayers   = 1,
         .samples       = VK_SAMPLE_COUNT_1_BIT,
-        .tiling        = VK_IMAGE_TILING_LINEAR,
+        .tiling        = VK_IMAGE_TILING_OPTIMAL,
         .usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
@@ -391,33 +596,50 @@ void VulkanRenderer::initResources()
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
-    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_renderImage);
+    // Create staging image
+    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_stagingImage);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create image: %d", result);
+        qDebug("Failed to create staging image: %d", result);
 
-    VkMemoryRequirements storageImageMemoryRequirements;
-    m_devFuncs->vkGetImageMemoryRequirements(dev, m_renderImage, &storageImageMemoryRequirements);
-    
-    VkMemoryAllocateInfo allocInfo 
-    {
+    // Create render images
+    for (int i = 0; i < concurrentFrameCount; i++) {
+        result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_renderImage[i]);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to create render image %d: %d", i, result);
+    }
+
+    // Allocate and bind memory
+    VkMemoryRequirements memoryRequirements;
+    m_devFuncs->vkGetImageMemoryRequirements(dev, m_stagingImage, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocInfo {
         .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext           = nullptr,
-        .allocationSize  = storageImageMemoryRequirements.size,
+        .allocationSize  = memoryRequirements.size,
         .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
-    };    
-    
-    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_renderImageMemory);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to allocate image memory: %d", result);
-    
-    m_devFuncs->vkBindImageMemory(dev, m_renderImage, m_renderImageMemory, 0);
+    };
 
-    VkImageViewCreateInfo viewInfo 
+    // Allocate memory for staging image
+    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_stagingImageMemory);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to allocate staging image memory: %d", result);
+    m_devFuncs->vkBindImageMemory(dev, m_stagingImage, m_stagingImageMemory, 0);
+
+
+    // Allocate and bind memory for render images
+    for (int i = 0; i < concurrentFrameCount; i++) {
+        result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_renderImageMemory[i]);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to allocate render image memory %d: %d", i, result);
+        m_devFuncs->vkBindImageMemory(dev, m_renderImage[i], m_renderImageMemory[i], 0);
+    }
+
+    VkImageViewCreateInfo viewInfo
     {
         .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext            = nullptr,
         .flags            = 0,
-        .image            = m_renderImage,
+        .image            = VK_NULL_HANDLE,
         .viewType         = VK_IMAGE_VIEW_TYPE_2D,
         .format           = VK_FORMAT_R32G32B32A32_SFLOAT,
         .components       = {}, // Identity mapping (R->R, G->G, etc.)
@@ -428,32 +650,43 @@ void VulkanRenderer::initResources()
             .baseArrayLayer = 0,
             .layerCount     = 1
         }
-    };    
+    };   
 
-    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_renderImageView);
+    // Create staging image view
+    viewInfo.image = m_stagingImage;
+    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_stagingImageView);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create image view: %d", result);
+        qDebug("Failed to create staging image view: %d", result);
+
+    // Create render image views
+    for (int i = 0; i < concurrentFrameCount; i++) {
+        viewInfo.image = m_renderImage[i];
+        result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_renderImageView[i]);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to create render image view %d: %d", i, result);
+    }
+
 
     VkSamplerCreateInfo samplerInfo{
-            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .magFilter = VK_FILTER_LINEAR,
-            .minFilter = VK_FILTER_LINEAR,
-            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-            .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-            .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-            .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-            .mipLodBias = 0.0f,
-            .anisotropyEnable = VK_FALSE, // TODO: Check if anisotropy is supported
-            .maxAnisotropy = maxSamplerAnisotropy,
-            .compareEnable = VK_FALSE,
-            .compareOp = VK_COMPARE_OP_ALWAYS,
-            .minLod = 0.0f,
-            .maxLod = VK_LOD_CLAMP_NONE,
-            .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-            .unnormalizedCoordinates = VK_FALSE,
-        };
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .mipLodBias = 0.0f,
+        .anisotropyEnable = VK_FALSE, // TODO: Check if anisotropy is supported
+        .maxAnisotropy = maxSamplerAnisotropy,
+        .compareEnable = VK_FALSE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .minLod = 0.0f,
+        .maxLod = VK_LOD_CLAMP_NONE,
+        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = VK_FALSE,
+    };
 
     result = m_devFuncs->vkCreateSampler(dev, &samplerInfo, nullptr, &m_textureSampler);
     if (result != VK_SUCCESS)
@@ -469,9 +702,18 @@ void VulkanRenderer::initResources()
 
 
 
+    for (int i = 0; i < concurrentFrameCount; i++) {
+        descImageInfo[i] = {
+            .sampler = m_textureSampler,
+            .imageView = m_renderImageView[i],
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+    }
 
 
 
+
+    // Now we have staging image view, and two render image views to work with
 
 
     
@@ -487,12 +729,11 @@ void VulkanRenderer::initResources()
         .queueFamilyIndex = computeQueueFamilyIndex
     };
     
-    VkCommandPool cmdPool;
+    
 
-    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
+    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &m_cmdPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create command pool: %d", result);
-
 
 
 
@@ -513,7 +754,7 @@ void VulkanRenderer::initResources()
     {
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .pNext              = nullptr,
-        .commandPool        = cmdPool,
+        .commandPool        = m_cmdPool,
         .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
     };
@@ -538,95 +779,66 @@ void VulkanRenderer::initResources()
 
 
 
-    VkImageMemoryBarrier imageMemoryBarrierToTransferDst
-    {
+
+
+
+
+    std::vector<VkImageMemoryBarrier> imageMemoryBarrierToTransferDst(concurrentFrameCount + 1);
+
+    for (int i = 0; i < concurrentFrameCount; i++) {
+        imageMemoryBarrierToTransferDst[i] = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_renderImage[i],
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };
+    }
+
+    // Staging image barrier (last element in array)
+    imageMemoryBarrierToTransferDst[concurrentFrameCount] = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
         .srcAccessMask = 0,
         .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_renderImage,
+        .image = m_stagingImage,
         .subresourceRange = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,
             .layerCount = 1
-        }
-    };  
-
-    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
-    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    0,
-    0, nullptr,
-    0, nullptr, 
-    1, &imageMemoryBarrierToTransferDst);   
-
-    VkImageCopy copyRegion
-    {
-        .srcSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .srcOffset = {0, 0, 0},
-        .dstSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .dstOffset = {0, 0, 0},
-        .extent = {
-            .width = render_width,
-            .height = render_height,
-            .depth = 1
         }
     };
 
-    VulkanRayTracer *raytracer = m_window->getVulkanRayTracer();
-    VkImage storageImage = raytracer->getStorageImage(); 
-
-    m_devFuncs->vkCmdCopyImage(
-        cmdBuffer, 
-        storageImage, 
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-        m_renderImage, 
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-        1, &copyRegion);
-
-    VkImageMemoryBarrier imageMemoryBarrierToShaderRead
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_renderImage,
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };  
-
     m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-    0,
-    0, nullptr,
-    0, nullptr, 
-    1, &imageMemoryBarrierToShaderRead);   
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        static_cast<uint32_t>(imageMemoryBarrierToTransferDst.size()), 
+        imageMemoryBarrierToTransferDst.data());
+
+
+
+
+
 
     result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
     if (result != VK_SUCCESS)
@@ -1013,17 +1225,9 @@ void VulkanRenderer::initResources()
             .pImageInfo = nullptr,
             .pBufferInfo = &m_uniformBufferInfo[i],
             .pTexelBufferView = nullptr
-        };
+        };        
 
-        VkDescriptorImageInfo descImageInfo 
-        {
-            .sampler = m_textureSampler,
-            .imageView = m_renderImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        };
-
-        VkWriteDescriptorSet storageImageWrite
-        {
+        VkWriteDescriptorSet storageImageWrite = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = nullptr,
             .dstSet = m_descSet[i],
@@ -1031,7 +1235,7 @@ void VulkanRenderer::initResources()
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &descImageInfo,
+            .pImageInfo = &descImageInfo[i],
             .pBufferInfo = nullptr,
             .pTexelBufferView = nullptr
         };
@@ -1085,6 +1289,16 @@ void VulkanRenderer::initResources()
     if (result != VK_SUCCESS)
         qDebug("Failed to create pipeline layout: %d", result);
 
+
+
+
+
+
+
+
+
+
+
     /////////////////////////////////////////////////////////////////////
     // Graphics pipeline
     /////////////////////////////////////////////////////////////////////
@@ -1115,6 +1329,21 @@ void VulkanRenderer::initResources()
     if (result != VK_SUCCESS)
         qDebug("Failed to create graphics pipeline: %d", result);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /////////////////////////////////////////////////////////////////////
     // Clean up
     /////////////////////////////////////////////////////////////////////
@@ -1123,6 +1352,23 @@ void VulkanRenderer::initResources()
         m_devFuncs->vkDestroyShaderModule(dev, vertShaderModule, nullptr);
     if (fragShaderModule)
         m_devFuncs->vkDestroyShaderModule(dev, fragShaderModule, nullptr);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /////////////////////////////////////////////////////////////////////
     // Logs
@@ -1238,6 +1484,24 @@ void VulkanRenderer::releaseResources()
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void VulkanRenderer::startNextFrame()
 {
     m_renderTimer.start();
@@ -1248,7 +1512,7 @@ void VulkanRenderer::startNextFrame()
 
     VkCommandBuffer cmdBuf = m_window->currentCommandBuffer();
 
-
+    uint32_t currentFrame = m_window->currentFrame();
 
 
 
@@ -1257,13 +1521,13 @@ void VulkanRenderer::startNextFrame()
     // Copy staging buffer to vertex buffer
     /////////////////////////////////////////////////////////////////////
 
-    VkBufferCopy copyRegion = {
+    VkBufferCopy bufferCopyRegion = {
         .srcOffset = 0,
         .dstOffset = 0,
         .size = sizeof(vertexData)
     };
 
-    m_devFuncs->vkCmdCopyBuffer(cmdBuf, m_vertexStagingBuffer, m_vertexBuffer, 1, &copyRegion);
+    m_devFuncs->vkCmdCopyBuffer(cmdBuf, m_vertexStagingBuffer, m_vertexBuffer, 1, &bufferCopyRegion);
 
 
 
@@ -1289,6 +1553,121 @@ void VulkanRenderer::startNextFrame()
         0, nullptr,
         0, nullptr
     );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    VkImageMemoryBarrier imageMemoryBarrierToTransferDst
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_renderImage[currentFrame],
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuf,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToTransferDst);   
+
+    VkImageCopy imageCopyRegion
+    {
+        .srcSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .srcOffset = {0, 0, 0},
+        .dstSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .dstOffset = {0, 0, 0},
+        .extent = {
+            .width = render_width,
+            .height = render_height,
+            .depth = 1
+        }
+    };
+
+    m_devFuncs->vkCmdCopyImage(
+        cmdBuf, 
+        m_stagingImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        m_renderImage[currentFrame], 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        1, &imageCopyRegion);
+    
+
+    VkImageMemoryBarrier imageMemoryBarrierToShaderRead
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_renderImage[currentFrame],
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+
+    m_devFuncs->vkCmdPipelineBarrier(cmdBuf,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToShaderRead);
+
+
+    
 
     /////////////////////////////////////////////////////////////////////
     // Begin render pass
@@ -1322,7 +1701,7 @@ void VulkanRenderer::startNextFrame()
     
     quint8 *p;
 
-    VkResult result = m_devFuncs->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[m_window->currentFrame()].offset,
+    VkResult result = m_devFuncs->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[currentFrame].offset,
             UNIFORM_MATRIX_DATA_SIZE + UNIFORM_VECTOR_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
     if (result != VK_SUCCESS)
         qDebug("Failed to map memory: %d", result);

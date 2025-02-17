@@ -117,9 +117,8 @@ QVulkanWindowRenderer *VulkanWindow::createRenderer()
     m_renderer = new VulkanRenderer(this);
     m_raytracer = new VulkanRayTracer(this);
 
-
+    QObject::connect(m_raytracer, &VulkanRayTracer::copySampledImage, m_renderer->m_helper, &VulkanRendererHelper::onCopySampledImageHelper);
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
-    QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::deviceReady, m_raytracer, &VulkanRayTracer::onDeviceReady);
 
     return m_renderer;
 }
@@ -127,6 +126,12 @@ QVulkanWindowRenderer *VulkanWindow::createRenderer()
 VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
 {
     return m_raytracer;
+}
+
+
+VulkanRenderer *VulkanWindow::getVulkanRenderer()
+{
+    return m_renderer;
 }
 
 Camera *VulkanWindow::getCamera()

@@ -5,7 +5,7 @@ Camera::Camera(VulkanWindow *w) : m_window(w)
 {
     m_fov = 60.0f;
     m_sensitivity = 0.25f;
-    m_radius = 5.0f;  
+    m_radius = 0.9f;  
     m_yaw = 0.0f;
     m_pitch = 0.0f;
 

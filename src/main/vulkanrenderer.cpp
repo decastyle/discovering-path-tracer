@@ -5,8 +5,12 @@
 #include <QObject>
 #include "camera.h"
 
-static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
-static const uint64_t render_height    = 1024;
+#include <QThread>
+
+#include "worker.h"
+
+static const uint64_t render_width     = 256; // TODO: Pass this data dynamically through Qt's GUI
+static const uint64_t render_height    = 256;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
@@ -72,13 +76,13 @@ static const uint32_t workgroup_height = 16;
 
 static float vertexData[] = {
     // Front face (Z = 1.0f)
-    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
-     0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
-     0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
+    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
+     0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
+     0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
 
-     0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
-    -0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
-    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
+     0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
+    -0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
+    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
 };
 
 static const int UNIFORM_MATRIX_DATA_SIZE = 16 * sizeof(float);
@@ -109,7 +113,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 VulkanRenderer::VulkanRenderer(VulkanWindow *w)
     : m_window(w)
 {   
-    m_helper = new VulkanRendererHelper();
+    m_helper = new VulkanRendererHelper(this);
 
     const QList<int> counts = w->supportedSampleCounts();
 
@@ -308,6 +312,8 @@ void VulkanRenderer::onCopySampledImage()
         .pSignalSemaphores    = nullptr
     };   
 
+    std::lock_guard<std::mutex> lock(queueMutex);
+
     result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (result != VK_SUCCESS)
         qDebug("Failed to submit command buffer to compute queue: %d", result);
@@ -315,6 +321,8 @@ void VulkanRenderer::onCopySampledImage()
     result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
     if (result != VK_SUCCESS)
         qDebug("Failed to wait for compute queue: %d", result);
+
+    qDebug() << "void VulkanRenderer::onCopySampledImage()";
 }
 
 
@@ -331,7 +339,11 @@ void VulkanRenderer::onCopySampledImage()
 
 
 
-
+void VulkanRendererHelper::onCopySampledImageHelper()
+{
+    m_renderer->onCopySampledImage(); 
+    qDebug() << "VulkanRendererHelper::onCopySampledImageHelper()";
+}
 
 
 
@@ -353,15 +365,34 @@ void VulkanRenderer::initResources()
 
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
-    emit m_helper->deviceReady(); // TODO: Better raytracing initialization
-    
-    qDebug() << "VULKANRENDERER.CPP after deviceReady()";
-
     uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
     m_devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
+    /////////////////////////////////////////////////////////////////////
+    // Create command pool
+    /////////////////////////////////////////////////////////////////////
+    
+    VkCommandPoolCreateInfo cmdPoolInfo 
+    {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext            = nullptr,
+        .flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = computeQueueFamilyIndex
+    };
+
+    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &m_cmdPool);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create command pool: %d", result);
+
+
+
+
+    
+
+    
 
     
 
@@ -589,7 +620,7 @@ void VulkanRenderer::initResources()
         .arrayLayers   = 1,
         .samples       = VK_SAMPLE_COUNT_1_BIT,
         .tiling        = VK_IMAGE_TILING_OPTIMAL,
-        .usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .usage         = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices   = nullptr,
@@ -601,6 +632,7 @@ void VulkanRenderer::initResources()
     if (result != VK_SUCCESS)
         qDebug("Failed to create staging image: %d", result);
 
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     // Create render images
     for (int i = 0; i < concurrentFrameCount; i++) {
         result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_renderImage[i]);
@@ -652,11 +684,11 @@ void VulkanRenderer::initResources()
         }
     };   
 
-    // Create staging image view
-    viewInfo.image = m_stagingImage;
-    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_stagingImageView);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create staging image view: %d", result);
+    // // Create staging image view
+    // viewInfo.image = m_stagingImage;
+    // result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_stagingImageView);
+    // if (result != VK_SUCCESS)
+    //     qDebug("Failed to create staging image view: %d", result);
 
     // Create render image views
     for (int i = 0; i < concurrentFrameCount; i++) {
@@ -671,9 +703,9 @@ void VulkanRenderer::initResources()
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .magFilter = VK_FILTER_LINEAR,
-        .minFilter = VK_FILTER_LINEAR,
-        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .magFilter = VK_FILTER_NEAREST,  // No filtering
+        .minFilter = VK_FILTER_NEAREST,  // No filtering
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST, // No mipmap interpolation
         .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
@@ -717,23 +749,7 @@ void VulkanRenderer::initResources()
 
 
     
-    /////////////////////////////////////////////////////////////////////
-    // Create command pool
-    /////////////////////////////////////////////////////////////////////
     
-    VkCommandPoolCreateInfo cmdPoolInfo 
-    {
-        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext            = nullptr,
-        .flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = computeQueueFamilyIndex
-    };
-    
-    
-
-    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &m_cmdPool);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create command pool: %d", result);
 
 
 
@@ -1333,12 +1349,35 @@ void VulkanRenderer::initResources()
 
 
 
+    // Worker and thread setup
+    QThread *thread = new QThread;
+    
+    Worker *worker = new Worker;
+
+    // Move raytracer to worker thread last to prevent race conditions
+    worker->moveToThread(thread);
+
+    VulkanRayTracer *raytracer = m_window->getVulkanRayTracer();
+    raytracer->moveToThread(thread);
+    
+
+    QObject::connect(thread, &QThread::started, worker, &Worker::doHeavyTask, Qt::QueuedConnection);
+    QObject::connect(worker, &Worker::taskFinished, thread, &QThread::quit, Qt::QueuedConnection);
+    QObject::connect(worker, &Worker::taskFinished, worker, &Worker::deleteLater, Qt::QueuedConnection);
+    QObject::connect(thread, &QThread::finished, thread, &QThread::deleteLater, Qt::QueuedConnection);
+
+    QObject::connect(worker, &Worker::deviceReady, m_window->getVulkanRayTracer(), &VulkanRayTracer::onDeviceReady, Qt::QueuedConnection);
+
+
+    thread->start();
+
+    qDebug() << "VulkanRenderer thread->start(); running in thread:" << QThread::currentThread();
 
 
 
-
-
-
+    // emit m_helper->deviceReady(); // TODO: Better raytracing initialization
+    
+    qDebug() << "VULKANRENDERER.CPP after deviceReady()";
 
 
 
@@ -1749,12 +1788,14 @@ void VulkanRenderer::startNextFrame()
 
     m_devFuncs->vkCmdDraw(cmdBuf, vertexCount, 1, 0, 0);
 
+    std::lock_guard<std::mutex> lock(queueMutex);
+
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
 
 
     
 
-
+    
 
 
 

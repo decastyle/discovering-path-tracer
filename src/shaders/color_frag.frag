@@ -12,7 +12,7 @@ layout(binding = 1) uniform sampler2D texSampler;
 void main() {
     vec4 textureColor = texture(texSampler, v_uv);
     vec4 specularColor = vec4(1.0, 1.0, 1.0, 1.0);
-    vec4 ambientColor = vec4(0.1, 0.1, 0.1, 1.0) * textureColor;
+    vec4 ambientColor = vec4(1.0, 1.0, 1.0, 1.0) * textureColor;
 
     float Ka = 1.0;
     float Kd = 1.0;
@@ -34,7 +34,8 @@ void main() {
         float specAngle = max(dot(R, V), 0.0);
         specular = pow(specAngle, shininessVal);
     }
-    fragColor = Ka * ambientColor + 
-                Kd * lambertian * textureColor + 
-                Ks * specular * specularColor;
+    // fragColor = Ka * ambientColor + 
+    //             Kd * lambertian * textureColor + 
+    //             Ks * specular * specularColor;
+    fragColor = ambientColor;
 }

@@ -22,10 +22,14 @@ public:
     VulkanRayTracer(VulkanWindow *w);
     VkImage getStorageImage();
 
+signals:
+    void copySampledImage();
+
 public slots:
     void onDeviceReady(); // TODO: Find a better way to initialize device (right now ray-tracer waits for renderer to initialize it through QVulkanWindow)
 
 private:
+    std::mutex *queueMutex;
     void initRayTracing();
 
     QVulkanInstance* m_instance;

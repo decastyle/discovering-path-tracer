@@ -4,14 +4,16 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 #include "common.h"
+#include <QThread>
+#include <mutex>
 
 
 
 
 PushConstants pushConstants;
 
-static const uint64_t render_width     = 1024;
-static const uint64_t render_height    = 1024;
+static const uint64_t render_width     = 256;
+static const uint64_t render_height    = 256;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
@@ -86,6 +88,8 @@ VkShaderModule VulkanRayTracer::createShaderModule(const QString& filename)
 
 void VulkanRayTracer::onDeviceReady()
 {
+    qDebug() << "VulkanRayTracer::onDeviceReady() running in thread:" << QThread::currentThread();
+
     static int initialized = 0;
 
     if(initialized == 0)
@@ -244,7 +248,7 @@ void VulkanRayTracer::initRayTracing()
 
     tinyobj::ObjReader reader;
 
-    if (!reader.ParseFromFile("../scenes/CornellBox-Original.obj")) { // TODO: Better scene loading
+    if (!reader.ParseFromFile("../scenes/Sylveon.obj")) { // TODO: Better scene loading
         qDebug() << "Failed to load .obj: " << reader.Error();
     }
 
@@ -1962,15 +1966,7 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-
-
-
-
-
-
-
-
-    const uint32_t NUM_SAMPLE_BATCHES = 32;
+    
 
 
     /////////////////////////////////////////////////////////////////////
@@ -2013,14 +2009,14 @@ void VulkanRayTracer::initRayTracing()
         // Pipeline barrier to ensure image layout transition completes before rendering
         /////////////////////////////////////////////////////////////////////
 
-        VkImageMemoryBarrier imageMemoryBarrierToGeneral
+        VkImageMemoryBarrier imageMemoryBarrier
         {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = 0,
             .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = m_storageImage,
@@ -2039,7 +2035,7 @@ void VulkanRayTracer::initRayTracing()
         0,
         0, nullptr,
         0, nullptr, 
-        1, &imageMemoryBarrierToGeneral);   
+        1, &imageMemoryBarrier);   
 
 
 
@@ -2092,8 +2088,9 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+    queueMutex = m_window->getVulkanRenderer()->getQueueMutex();
 
-
+    const uint32_t NUM_SAMPLE_BATCHES = 1024;
 
 
 
@@ -2130,6 +2127,38 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+        VkImageMemoryBarrier imageMemoryBarrierToGeneral
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL, 
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_storageImage,
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };  
+
+        m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr, 
+        1, &imageMemoryBarrierToGeneral);   
+
+
+
+
+
 
 
 
@@ -2161,39 +2190,38 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-        if(sampleBatch == NUM_SAMPLE_BATCHES - 1)
+        
+        VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
         {
-            VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
-            {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                .pNext = nullptr,
-                .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-                .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = m_storageImage,
-                .subresourceRange = {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                }
-            };  
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_storageImage,
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };  
 
-            m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0,
-            0, nullptr,
-            0, nullptr, 
-            1, &imageMemoryBarrierToTransferSrc);   
-        }
+        m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr, 
+        1, &imageMemoryBarrierToTransferSrc);   
+        
 
 
-
+        // std::lock_guard<std::mutex> lock(*queueMutex); // Lock the mutex
 
 
 
@@ -2214,6 +2242,12 @@ void VulkanRayTracer::initRayTracing()
             .pSignalSemaphores    = nullptr
         };    
 
+
+
+
+        std::lock_guard<std::mutex> lock(*queueMutex);
+
+
         result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
         if (result != VK_SUCCESS)
             qDebug("Failed to submit command buffer to compute queue: %d", result);
@@ -2223,6 +2257,10 @@ void VulkanRayTracer::initRayTracing()
             qDebug("Failed to wait for compute queue: %d", result);
 
         qDebug("Rendered sample batch index %d.\n", sampleBatch);
+
+        emit copySampledImage();
+
+        qDebug() << "VULKANRAYTRACER.CPP emit copySampledImage();";
     }
 
     qDebug() << "VULKANRAYTRACER.CPP after compute write to image";

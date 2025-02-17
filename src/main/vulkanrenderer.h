@@ -6,20 +6,42 @@
 #include <QElapsedTimer>
 #include "vulkanwindow.h"
 #include <vulkan/vulkan.h>
+#include <mutex>
+
+
+
 
 class VulkanWindow;
+class VulkanRenderer;
 
 class VulkanRendererHelper : public QObject
 {
     Q_OBJECT
 
+
+public:
+    VulkanRendererHelper(VulkanRenderer *renderer) : m_renderer(renderer) {}
+
 signals:
     void updateSwapChain();
     void deviceReady();
+
+public slots:
+    void onCopySampledImageHelper();
+
+private:
+    VulkanRenderer *m_renderer;
+
 };
+
+
+
+
 
 class VulkanRenderer : public QVulkanWindowRenderer
 {
+
+
 public:
     VulkanRenderer(VulkanWindow *w);
 
@@ -33,9 +55,17 @@ public:
     void startNextFrame() override;
 
     VulkanRendererHelper *m_helper;
+    void onCopySampledImage();
+
+    std::mutex *getQueueMutex()
+    {
+        return &queueMutex;
+    }
+
 
 protected:
-    void onCopySampledImage();
+    std::mutex queueMutex;
+
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
 

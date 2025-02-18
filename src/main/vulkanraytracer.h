@@ -29,7 +29,7 @@ public slots:
     void onDeviceReady(); // TODO: Find a better way to initialize device (right now ray-tracer waits for renderer to initialize it through QVulkanWindow)
 
 private:
-    std::mutex *queueMutex;
+    // std::mutex *queueMutex;
     void initRayTracing();
 
     QVulkanInstance* m_instance;
@@ -38,7 +38,9 @@ private:
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
     VkShaderModule createShaderModule(const QString &filename);
+
     VkQueue m_computeQueue = VK_NULL_HANDLE;
+    VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     
     VkImage m_storageImage = VK_NULL_HANDLE;
     VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;

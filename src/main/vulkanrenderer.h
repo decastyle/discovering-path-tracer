@@ -8,9 +8,6 @@
 #include <vulkan/vulkan.h>
 #include <mutex>
 
-
-
-
 class VulkanWindow;
 class VulkanRenderer;
 
@@ -18,20 +15,17 @@ class VulkanRendererHelper : public QObject
 {
     Q_OBJECT
 
-
 public:
     VulkanRendererHelper(VulkanRenderer *renderer) : m_renderer(renderer) {}
 
 signals:
     void updateSwapChain();
-    void deviceReady();
 
 public slots:
     void onCopySampledImageHelper();
 
 private:
     VulkanRenderer *m_renderer;
-
 };
 
 
@@ -54,17 +48,19 @@ public:
 
     void startNextFrame() override;
 
-    VulkanRendererHelper *m_helper;
     void onCopySampledImage();
 
-    std::mutex *getQueueMutex()
-    {
-        return &queueMutex;
-    }
+    // std::mutex *getQueueMutex()
+    // {
+    //     return &queueMutex;
+    // }
 
+    VulkanRendererHelper *m_helper;
 
 protected:
-    std::mutex queueMutex;
+    
+
+    // std::mutex queueMutex;
 
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
@@ -101,8 +97,7 @@ protected:
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
-    VkQueue m_computeQueue;
-
+    VkQueue m_graphicsQueue;
     VkCommandPool m_cmdPool;
 
     QElapsedTimer m_renderTimer;

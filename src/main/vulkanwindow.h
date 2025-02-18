@@ -57,14 +57,15 @@ private:
     std::mutex queueMutex{}; 
 
     VkQueue m_computeQueue;
+    VkQueue m_graphicsQueue;
 
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
 
-    
+    // VkSemaphore m_renderFinishedSemaphore;
+    // VkSemaphore m_rayTracingFinishedSemaphore;
+    // VkSemaphore m_transferFinishedSemaphore;
 
-    VkSemaphore m_renderFinishedSemaphore;
-    VkSemaphore m_rayTracingFinishedSemaphore;
-    VkSemaphore m_transferFinishedSemaphore;
+    VkDevice m_device;
     Camera *m_camera;
     VulkanRayTracer *m_raytracer;
     VulkanRenderer *m_renderer;

@@ -6,10 +6,6 @@
 #include "common.h"
 #include <QThread>
 #include <mutex>
-#include "vulkansubmissionmanager.h"
-
-
-
 
 PushConstants pushConstants;
 
@@ -17,13 +13,6 @@ static const uint64_t render_width     = 256;
 static const uint64_t render_height    = 256;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
-
-
-
-
-
-
-
 
 uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
 {
@@ -33,24 +22,33 @@ uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, 
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
+    uint32_t fallbackIndex = UINT32_MAX; // Fallback if a dedicated queue isn't found
+
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
+        bool supportsGraphics = queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT;
+        bool supportsCompute = queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT;
+        bool supportsRaytracing = queueFamilies[i].queueFlags & VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+
+        qDebug("Queue Family %d: Graphics=%d, Compute=%d, Raytracing=%d", i, supportsGraphics, supportsCompute, supportsRaytracing);
+
+
+
         if (queueFamilies[i].queueFlags & bit) {
-            return i;  
+            if ((bit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+
+                bool supportsRayTracing = (queueFamilies[i].queueFlags & VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+                qDebug("Queue family %d supports COMPUTE. RayTracing: %s", i, supportsRayTracing ? "YES" : "NO");
+
+                return i;  // Prefer a dedicated compute queue
+            }
+            if (fallbackIndex == UINT32_MAX) {
+                fallbackIndex = i;  // Save first matching queue in case a dedicated one isn't found
+            }
         }
     }
     
-    return UINT32_MAX; 
+    return fallbackIndex;
 }
-
-
-
-
-
-
-
-
-
-
 
 VkShaderModule VulkanRayTracer::createShaderModule(const QString& filename)
 {
@@ -101,23 +99,15 @@ void VulkanRayTracer::onDeviceReady()
     }
 }
 
-
-
-
-
-
-
-
-
 void VulkanRayTracer::initRayTracing()
 {
     VkResult result{};
-
     VkDevice dev = m_window->device();
-
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
-    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+
+    // TODO: Only initialize in vulkanwindow once
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT); 
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
@@ -127,18 +117,18 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+    uint32_t graphicsQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
+    if (graphicsQueueFamilyIndex == UINT32_MAX)
+        qDebug("No suitable graphics queue family found!");
+
+    qDebug() << "Graphics Queue Index:" << graphicsQueueFamilyIndex;
+
+    m_devFuncs->vkGetDeviceQueue(dev, graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
 
 
 
 
-
-
-
-
-
-
-
-
+    // TODO: setup volk to avoid manual pointer to function initialization
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR =
         (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(dev, "vkGetAccelerationStructureBuildSizesKHR");
 
@@ -227,8 +217,21 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+    VkCommandPoolCreateInfo graphicsCmdPoolInfo 
+    {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext            = nullptr,
+        .flags            = 0,
+        .queueFamilyIndex = graphicsQueueFamilyIndex
+    };
+    
+    VkCommandPool graphicsCmdPool;
 
+    result = m_devFuncs->vkCreateCommandPool(dev, &graphicsCmdPoolInfo , nullptr, &graphicsCmdPool);
+    if (result != VK_SUCCESS)
+        qDebug("Failed to create graphics command pool: %d", result);
 
+    
 
 
 
@@ -269,7 +272,9 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    
+    
 
 
 
@@ -325,6 +330,14 @@ void VulkanRayTracer::initRayTracing()
     if (result != VK_SUCCESS)
         qDebug("Failed to bind vertex buffer memory: %d", result);
 
+
+
+
+    qDebug() << "VERTEX BUFFER";
+
+
+
+
     // Create staging buffer
     VkBufferCreateInfo vertexStagingBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -368,6 +381,15 @@ void VulkanRayTracer::initRayTracing()
     memcpy(pVertexStaging, objVertices.data(), objVertices.size() * sizeof(tinyobj::real_t));
     m_devFuncs->vkUnmapMemory(dev, m_vertexStagingMemory);
 
+
+
+
+    qDebug() << "VERTEX STAGING BUFFER";
+
+
+
+
+
     // Create index buffer
     VkBufferCreateInfo indexBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -408,6 +430,18 @@ void VulkanRayTracer::initRayTracing()
     result = m_devFuncs->vkBindBufferMemory(dev, m_indexBuffer, m_indexMemory, 0);
     if (result != VK_SUCCESS)
         qDebug("Failed to bind index buffer memory: %d", result);
+
+
+
+    qDebug() << "INDEX BUFFER";
+
+
+
+
+
+
+
+
 
     // Create staging buffer
     VkBufferCreateInfo indexStagingBufferInfo = {
@@ -453,10 +487,12 @@ void VulkanRayTracer::initRayTracing()
     m_devFuncs->vkUnmapMemory(dev, m_indexStagingMemory);
 
 
+    qDebug() << "INDEX STAGING BUFFER";
 
 
-
-
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    
+    
 
 
 
@@ -475,7 +511,7 @@ void VulkanRayTracer::initRayTracing()
         {
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .pNext              = nullptr,
-            .commandPool        = cmdPool,
+            .commandPool        = graphicsCmdPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1
         };
@@ -529,7 +565,7 @@ void VulkanRayTracer::initRayTracing()
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_INDEX_READ_BIT,
+            .dstAccessMask = VK_ACCESS_INDEX_READ_BIT,   
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .buffer = m_indexBuffer,
@@ -541,7 +577,7 @@ void VulkanRayTracer::initRayTracing()
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+            .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, 
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .buffer = m_vertexBuffer,
@@ -554,7 +590,7 @@ void VulkanRayTracer::initRayTracing()
         m_devFuncs->vkCmdPipelineBarrier(
             cmdBuffer,
             VK_PIPELINE_STAGE_TRANSFER_BIT,         
-            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,    
+            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
             0,
             0, nullptr,
             2, bufferBarriers,
@@ -577,14 +613,15 @@ void VulkanRayTracer::initRayTracing()
             .signalSemaphoreCount = 0,
             .pSignalSemaphores    = nullptr
         };    
+        qDebug() << "VULKANRAYTRACER.CPP BEFORE copying vertex and index data";
 
-        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        result = m_devFuncs->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         if (result != VK_SUCCESS)
-            qDebug("Failed to submit command buffer to compute queue: %d", result);
+            qDebug("Failed to submit command buffer to graphics queue: %d", result);
 
-        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        result = m_devFuncs->vkQueueWaitIdle(m_graphicsQueue);
         if (result != VK_SUCCESS)
-            qDebug("Failed to wait for compute queue: %d", result);
+            qDebug("Failed to wait for graphics queue: %d", result);
     }
 
     qDebug() << "VULKANRAYTRACER.CPP after copying vertex and index data";
@@ -856,6 +893,14 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 
 
@@ -870,7 +915,7 @@ void VulkanRayTracer::initRayTracing()
         {
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .pNext              = nullptr,
-            .commandPool        = cmdPool,
+            .commandPool        = graphicsCmdPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1
         };
@@ -934,13 +979,13 @@ void VulkanRayTracer::initRayTracing()
             .pSignalSemaphores    = nullptr
         };    
 
-        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        result = m_devFuncs->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         if (result != VK_SUCCESS)
-            qDebug("Failed to submit command buffer to compute queue: %d", result);
+            qDebug("Failed to submit command buffer to graphics queue: %d", result);
 
-        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        result = m_devFuncs->vkQueueWaitIdle(m_graphicsQueue);
         if (result != VK_SUCCESS)
-            qDebug("Failed to wait for compute queue: %d", result);
+            qDebug("Failed to wait for graphics queue: %d", result);
     }
 
 
@@ -955,7 +1000,14 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 
 
@@ -1275,6 +1327,14 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+
 
 
 
@@ -1291,7 +1351,7 @@ void VulkanRayTracer::initRayTracing()
         {
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .pNext              = nullptr,
-            .commandPool        = cmdPool,
+            .commandPool        = graphicsCmdPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1
         };
@@ -1355,13 +1415,13 @@ void VulkanRayTracer::initRayTracing()
             .pSignalSemaphores    = nullptr
         };    
 
-        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        result = m_devFuncs->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         if (result != VK_SUCCESS)
-            qDebug("Failed to submit command buffer to compute queue: %d", result);
+            qDebug("Failed to submit command buffer to graphics queue: %d", result);
 
-        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        result = m_devFuncs->vkQueueWaitIdle(m_graphicsQueue);
         if (result != VK_SUCCESS)
-            qDebug("Failed to wait for compute queue: %d", result);
+            qDebug("Failed to wait for graphics queue: %d", result);
     }
 
 
@@ -1962,6 +2022,13 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+    qDebug() << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 
 
 
@@ -1982,7 +2049,7 @@ void VulkanRayTracer::initRayTracing()
         {
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .pNext              = nullptr,
-            .commandPool        = cmdPool,
+            .commandPool        = graphicsCmdPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1
         };
@@ -2019,7 +2086,7 @@ void VulkanRayTracer::initRayTracing()
             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = graphicsQueueFamilyIndex,
             .image = m_storageImage,
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -2058,13 +2125,13 @@ void VulkanRayTracer::initRayTracing()
             .pSignalSemaphores    = nullptr
         };    
 
-        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        result = m_devFuncs->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         if (result != VK_SUCCESS)
-            qDebug("Failed to submit command buffer to compute queue: %d", result);
+            qDebug("Failed to submit command buffer to graphics queue: %d", result);
 
-        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        result = m_devFuncs->vkQueueWaitIdle(m_graphicsQueue);
         if (result != VK_SUCCESS)
-            qDebug("Failed to wait for compute queue: %d", result);
+            qDebug("Failed to wait for graphics queue: %d", result);
     }
 
 
@@ -2076,6 +2143,13 @@ void VulkanRayTracer::initRayTracing()
 
 
 
+
+    
+    qDebug() << "CCCCCCCCCCCCCCCCCCCCCCCCC";
+    qDebug() << "CCCCCCCCCCCCCCCCCCCCCCCCC";
+    qDebug() << "CCCCCCCCCCCCCCCCCCCCCCCCC";
+    qDebug() << "CCCCCCCCCCCCCCCCCCCCCCCCC";
+    qDebug() << "CCCCCCCCCCCCCCCCCCCCCCCCC";
 
 
 
@@ -2089,12 +2163,19 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-    // queueMutex = m_window->getQueueMutex();
-
-    const uint32_t NUM_SAMPLE_BATCHES = 16;
+    // queueMutex = m_window->getVulkanRenderer()->getQueueMutex();
 
 
 
+
+
+
+
+
+
+
+
+    const uint32_t NUM_SAMPLE_BATCHES = 1024;
 
     for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
     {
@@ -2124,7 +2205,7 @@ void VulkanRayTracer::initRayTracing()
         if (result != VK_SUCCESS)
             qDebug("Failed to begin command buffer: %d", result);
 
-
+        qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAA";
 
 
 
@@ -2136,8 +2217,8 @@ void VulkanRayTracer::initRayTracing()
             .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             .newLayout = VK_IMAGE_LAYOUT_GENERAL, 
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .srcQueueFamilyIndex = graphicsQueueFamilyIndex,
+            .dstQueueFamilyIndex = computeQueueFamilyIndex,
             .image = m_storageImage,
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -2178,7 +2259,7 @@ void VulkanRayTracer::initRayTracing()
                        0,                                       // Offset
                        sizeof(PushConstants),                   // Size in bytes
                        &pushConstants);                         // Data
-
+        qDebug() << "AAAAAAAAAAAAAAAAAAAAAAAAA";
 
         vkCmdTraceRaysKHR(cmdBuffer,           // Command buffer
                       &sbtRayGenRegion,    // Region of memory with ray generation groups
@@ -2189,7 +2270,7 @@ void VulkanRayTracer::initRayTracing()
                       render_height,       // Height of dispatch
                       1);                  // Depth of dispatch
 
-
+        qDebug() << "BBBBBBBBBBBBBBBBBBBBBBB";
 
         
         VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
@@ -2200,8 +2281,8 @@ void VulkanRayTracer::initRayTracing()
             .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .srcQueueFamilyIndex = computeQueueFamilyIndex,
+            .dstQueueFamilyIndex = graphicsQueueFamilyIndex,
             .image = m_storageImage,
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -2230,35 +2311,32 @@ void VulkanRayTracer::initRayTracing()
         if (result != VK_SUCCESS)
             qDebug("Failed to end command buffer: %d", result);
 
-        // VkSubmitInfo submitInfo 
-        // {
-        //     .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        //     .pNext                = nullptr,
-        //     .waitSemaphoreCount   = 0,
-        //     .pWaitSemaphores      = nullptr,
-        //     .pWaitDstStageMask    = nullptr,
-        //     .commandBufferCount   = 1,
-        //     .pCommandBuffers      = &cmdBuffer,
-        //     .signalSemaphoreCount = 0,
-        //     .pSignalSemaphores    = nullptr
-        // };    
+        VkSubmitInfo submitInfo 
+        {
+            .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext                = nullptr,
+            .waitSemaphoreCount   = 0,
+            .pWaitSemaphores      = nullptr,
+            .pWaitDstStageMask    = nullptr,
+            .commandBufferCount   = 1,
+            .pCommandBuffers      = &cmdBuffer,
+            .signalSemaphoreCount = 0,
+            .pSignalSemaphores    = nullptr
+        };    
 
 
 
 
-        m_window->m_submissionManager->addCommandBuffer(cmdBuffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        *m_window->getTransferFinishedSemaphore(), // Wait for render to finish
-        *m_window->getRayTracingFinishedSemaphore()); // Signal that ray tracing is done
+        // std::lock_guard<std::mutex> lock(*queueMutex);
 
 
-        // result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        // if (result != VK_SUCCESS)
-        //     qDebug("Failed to submit command buffer to compute queue: %d", result);
+        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to submit command buffer to compute queue: %d", result);
 
-        // result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
-        // if (result != VK_SUCCESS)
-        //     qDebug("Failed to wait for compute queue: %d", result);
+        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        if (result != VK_SUCCESS)
+            qDebug("Failed to wait for compute queue: %d", result);
 
         qDebug("Rendered sample batch index %d.\n", sampleBatch);
 

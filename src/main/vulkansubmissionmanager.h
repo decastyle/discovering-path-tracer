@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <mutex>
 
 class VulkanSubmissionManager {
 public:
@@ -13,10 +14,12 @@ public:
     void submit();
 
 private:
+    std::mutex m_mutex{};
     VkDevice m_device;
     VkQueue m_queue;
 
-    struct Submission {
+    struct Submission 
+    {
         VkCommandBuffer cmdBuf;
         VkPipelineStageFlags waitStage;
         VkSemaphore waitSemaphore;

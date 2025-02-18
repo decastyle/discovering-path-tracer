@@ -40,6 +40,8 @@ public:
 
     VulkanSubmissionManager* m_submissionManager;
 
+    std::mutex *getQueueMutex();
+
 signals:
     void vulkanInfoReceived(const QString &text);
     void cameraViewUpdate(QPoint m_delta);
@@ -52,6 +54,7 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
+    std::mutex queueMutex{}; 
 
     VkQueue m_computeQueue;
 

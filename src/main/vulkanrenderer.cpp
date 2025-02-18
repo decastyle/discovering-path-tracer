@@ -1553,6 +1553,8 @@ void VulkanRenderer::startNextFrame()
 {
     m_renderTimer.start();
 
+    m_window->m_submissionManager->submit();
+
     VkDevice device = m_window->device();
 
     const QSize sz = m_window->swapChainImageSize();
@@ -1560,6 +1562,8 @@ void VulkanRenderer::startNextFrame()
     VkCommandBuffer cmdBuf = m_window->currentCommandBuffer();
 
     uint32_t currentFrame = m_window->currentFrame();
+
+    
 
 
 
@@ -1805,11 +1809,12 @@ void VulkanRenderer::startNextFrame()
 
     
 
-    // Add to submission manager, waiting on ray tracing
+    // // Add to submission manager, waiting on ray tracing
     m_window->m_submissionManager->addCommandBuffer(cmdBuf,
         VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
         *m_window->getTransferFinishedSemaphore(), // Wait for transfer to finish
-        *m_window->getRenderFinishedSemaphore()); // Signal when rendering is done
+        *m_window->getRenderFinishedSemaphore()    // Signal when rendering is done
+    ); 
 
     
 

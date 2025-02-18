@@ -2089,7 +2089,7 @@ void VulkanRayTracer::initRayTracing()
 
 
 
-    queueMutex = m_window->getVulkanRenderer()->getQueueMutex();
+    // queueMutex = m_window->getQueueMutex();
 
     const uint32_t NUM_SAMPLE_BATCHES = 16;
 
@@ -2248,7 +2248,7 @@ void VulkanRayTracer::initRayTracing()
 
         m_window->m_submissionManager->addCommandBuffer(cmdBuffer,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        *m_window->getRenderFinishedSemaphore(), // Wait for render to finish
+        *m_window->getTransferFinishedSemaphore(), // Wait for render to finish
         *m_window->getRayTracingFinishedSemaphore()); // Signal that ray tracing is done
 
 

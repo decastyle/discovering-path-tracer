@@ -120,9 +120,7 @@ VulkanWindow::VulkanWindow()
 
 
 
-
-
-
+    
     QWindow::setCursor(Qt::OpenHandCursor);
     m_camera = new Camera(this);
     
@@ -290,4 +288,10 @@ VkSemaphore *VulkanWindow::getRenderFinishedSemaphore()
 VkSemaphore *VulkanWindow::getTransferFinishedSemaphore()
 {
     return &m_transferFinishedSemaphore;
+}
+
+
+std::mutex *VulkanWindow::getQueueMutex()
+{
+    return &queueMutex;
 }

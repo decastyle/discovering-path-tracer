@@ -6,6 +6,7 @@
 #include "common.h"
 #include <QThread>
 #include <mutex>
+#include "vulkansubmissionmanager.h"
 
 
 
@@ -2090,7 +2091,7 @@ void VulkanRayTracer::initRayTracing()
 
     queueMutex = m_window->getVulkanRenderer()->getQueueMutex();
 
-    const uint32_t NUM_SAMPLE_BATCHES = 1024;
+    const uint32_t NUM_SAMPLE_BATCHES = 16;
 
 
 
@@ -2229,32 +2230,35 @@ void VulkanRayTracer::initRayTracing()
         if (result != VK_SUCCESS)
             qDebug("Failed to end command buffer: %d", result);
 
-        VkSubmitInfo submitInfo 
-        {
-            .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .pNext                = nullptr,
-            .waitSemaphoreCount   = 0,
-            .pWaitSemaphores      = nullptr,
-            .pWaitDstStageMask    = nullptr,
-            .commandBufferCount   = 1,
-            .pCommandBuffers      = &cmdBuffer,
-            .signalSemaphoreCount = 0,
-            .pSignalSemaphores    = nullptr
-        };    
+        // VkSubmitInfo submitInfo 
+        // {
+        //     .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        //     .pNext                = nullptr,
+        //     .waitSemaphoreCount   = 0,
+        //     .pWaitSemaphores      = nullptr,
+        //     .pWaitDstStageMask    = nullptr,
+        //     .commandBufferCount   = 1,
+        //     .pCommandBuffers      = &cmdBuffer,
+        //     .signalSemaphoreCount = 0,
+        //     .pSignalSemaphores    = nullptr
+        // };    
 
 
 
 
-        std::lock_guard<std::mutex> lock(*queueMutex);
+        m_window->m_submissionManager->addCommandBuffer(cmdBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        *m_window->getRenderFinishedSemaphore(), // Wait for render to finish
+        *m_window->getRayTracingFinishedSemaphore()); // Signal that ray tracing is done
 
 
-        result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        if (result != VK_SUCCESS)
-            qDebug("Failed to submit command buffer to compute queue: %d", result);
+        // result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        // if (result != VK_SUCCESS)
+        //     qDebug("Failed to submit command buffer to compute queue: %d", result);
 
-        result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
-        if (result != VK_SUCCESS)
-            qDebug("Failed to wait for compute queue: %d", result);
+        // result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+        // if (result != VK_SUCCESS)
+        //     qDebug("Failed to wait for compute queue: %d", result);
 
         qDebug("Rendered sample batch index %d.\n", sampleBatch);
 

@@ -5,6 +5,8 @@
 #include <QObject>
 #include "camera.h"
 
+#include "vulkansubmissionmanager.h"
+
 #include <QThread>
 
 #include "worker.h"
@@ -299,30 +301,34 @@ void VulkanRenderer::onCopySampledImage()
     if (result != VK_SUCCESS)
         qDebug("Failed to end command buffer: %d", result);
 
-    VkSubmitInfo submitInfo 
-    {
-        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext                = nullptr,
-        .waitSemaphoreCount   = 0,
-        .pWaitSemaphores      = nullptr,
-        .pWaitDstStageMask    = nullptr,
-        .commandBufferCount   = 1,
-        .pCommandBuffers      = &cmdBuffer,
-        .signalSemaphoreCount = 0,
-        .pSignalSemaphores    = nullptr
-    };   
+    // VkSubmitInfo submitInfo 
+    // {
+    //     .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    //     .pNext                = nullptr,
+    //     .waitSemaphoreCount   = 0,
+    //     .pWaitSemaphores      = nullptr,
+    //     .pWaitDstStageMask    = nullptr,
+    //     .commandBufferCount   = 1,
+    //     .pCommandBuffers      = &cmdBuffer,
+    //     .signalSemaphoreCount = 0,
+    //     .pSignalSemaphores    = nullptr
+    // };   
 
-    std::lock_guard<std::mutex> lock(queueMutex);
+    m_window->m_submissionManager->addCommandBuffer(cmdBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        *m_window->getRayTracingFinishedSemaphore(), // Wait for raytracing to finish
+        *m_window->getTransferFinishedSemaphore()); // Signal that transfer is done
 
-    result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to submit command buffer to compute queue: %d", result);
 
-    result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to wait for compute queue: %d", result);
+    // result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    // if (result != VK_SUCCESS)
+    //     qDebug("Failed to submit command buffer to compute queue: %d", result);
 
-    qDebug() << "void VulkanRenderer::onCopySampledImage()";
+    // result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+    // if (result != VK_SUCCESS)
+    //     qDebug("Failed to wait for compute queue: %d", result);
+
+    qDebug() << "Image copied to staging image!";
 }
 
 
@@ -362,6 +368,8 @@ void VulkanRenderer::initResources()
     VkResult result{};
 
     VkDevice dev = m_window->device();
+
+    m_window->deviceCreated();
 
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
@@ -1037,7 +1045,7 @@ void VulkanRenderer::initResources()
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .cullMode = VK_CULL_MODE_NONE,
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
         .depthBiasConstantFactor = 0.0f, // Optional
@@ -1708,11 +1716,14 @@ void VulkanRenderer::startNextFrame()
 
     
 
+    qDebug() << "Staging image copied to current render image!";
+    
+
     /////////////////////////////////////////////////////////////////////
     // Begin render pass
     /////////////////////////////////////////////////////////////////////
 
-    VkClearColorValue clearColor = { .float32 = { 0.0f, 0.0f, 0.0f, 1.0f } };
+    VkClearColorValue clearColor = { .float32 = { 0.2f, 0.2f, 0.2f, 1.0f } };
 
     VkClearDepthStencilValue clearDS = { .depth = 1.0f, .stencil = 0 };
 
@@ -1788,12 +1799,17 @@ void VulkanRenderer::startNextFrame()
 
     m_devFuncs->vkCmdDraw(cmdBuf, vertexCount, 1, 0, 0);
 
-    std::lock_guard<std::mutex> lock(queueMutex);
 
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
 
 
     
+
+    // Add to submission manager, waiting on ray tracing
+    m_window->m_submissionManager->addCommandBuffer(cmdBuf,
+        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+        *m_window->getTransferFinishedSemaphore(), // Wait for transfer to finish
+        *m_window->getRenderFinishedSemaphore()); // Signal when rendering is done
 
     
 
@@ -1805,9 +1821,6 @@ void VulkanRenderer::startNextFrame()
 
     qDebug() << "Render time:" << m_renderTimeNs / 1.0e6 << "ms, FPS:" << m_fps;
 
-
-
-    
 
 
 

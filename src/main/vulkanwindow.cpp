@@ -6,6 +6,25 @@
 #include <QObject>
 #include "camera.h"
 
+
+
+uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
+{
+    uint32_t queueFamilyCount = 0;
+    this->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    this->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+
+    for (uint32_t i = 0; i < queueFamilyCount; i++) {
+        if (queueFamilies[i].queueFlags & bit) {
+            return i;  
+        }
+    }
+    
+    return UINT32_MAX; 
+}
+
 VulkanWindow::VulkanWindow()
 {
 
@@ -104,7 +123,6 @@ VulkanWindow::VulkanWindow()
 
 
 
-
     QWindow::setCursor(Qt::OpenHandCursor);
     m_camera = new Camera(this);
     
@@ -114,6 +132,14 @@ VulkanWindow::VulkanWindow()
 
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
+    
+
+
+
+
+
+
+
     m_renderer = new VulkanRenderer(this);
     m_raytracer = new VulkanRayTracer(this);
 
@@ -121,6 +147,34 @@ QVulkanWindowRenderer *VulkanWindow::createRenderer()
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
 
     return m_renderer;
+}
+
+
+
+void VulkanWindow::deviceCreated()
+{
+    VkDevice dev = this->device();
+
+    QVulkanDeviceFunctions *devFuncs = this->vulkanInstance()->deviceFunctions(dev);
+    
+    VkSemaphoreCreateInfo semaphoreInfo
+    { 
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0
+    };
+
+    devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_rayTracingFinishedSemaphore);
+    devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore);
+    devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_transferFinishedSemaphore);
+
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    if (computeQueueFamilyIndex == UINT32_MAX)
+        qDebug("No suitable compute queue family found!");
+
+    devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
+    m_submissionManager = new VulkanSubmissionManager(dev, m_computeQueue);
 }
 
 VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
@@ -221,4 +275,19 @@ void VulkanWindow::mouseReleaseEvent(QMouseEvent *event)
     {  
         QWindow::setCursor(Qt::OpenHandCursor);
     }
+}
+
+
+VkSemaphore *VulkanWindow::getRayTracingFinishedSemaphore()
+{
+    return &m_rayTracingFinishedSemaphore;
+}
+VkSemaphore *VulkanWindow::getRenderFinishedSemaphore()
+{
+    return &m_renderFinishedSemaphore;
+}
+
+VkSemaphore *VulkanWindow::getTransferFinishedSemaphore()
+{
+    return &m_transferFinishedSemaphore;
 }

@@ -212,7 +212,7 @@ endif()
 #=================================#
 # For convenient #include of header files
 #
-target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/headers)
 target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
 #=================================#

@@ -4,18 +4,17 @@
 #include <QObject>
 #include <QVulkanWindow>
 #include <QElapsedTimer>
-#include "vulkanwindow.h"
 #include <vulkan/vulkan.h>
-#include <mutex>
+
+#include "VulkanWindow.h"
 
 class VulkanWindow;
 class VulkanRenderer;
 
+
 class VulkanRendererHelper : public QObject
 {
     Q_OBJECT
-
-
 public:
     VulkanRendererHelper(VulkanRenderer *renderer) : m_renderer(renderer) {}
 
@@ -26,6 +25,7 @@ signals:
 private:
     VulkanRenderer *m_renderer;
 };
+
 
 class VulkanRenderer : public QVulkanWindowRenderer
 {
@@ -41,9 +41,6 @@ public:
     VulkanRendererHelper *m_helper;
 
 protected:
-    uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
-    VkShaderModule createShaderModule(const QString &filename);
-
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
 
@@ -61,9 +58,6 @@ protected:
     VkImage m_renderImage = VK_NULL_HANDLE;
     VkDeviceMemory m_renderImageMemory = VK_NULL_HANDLE;
     VkImageView m_renderImageView = VK_NULL_HANDLE;
-
-
-
     VkSampler m_textureSampler;
 
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;

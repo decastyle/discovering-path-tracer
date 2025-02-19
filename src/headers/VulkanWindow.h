@@ -6,10 +6,13 @@
 #include <QString>
 #include <QWindow>
 #include <QCursor>
-#include "camera.h"
-#include "vulkanrenderer.h"
-#include "vulkanraytracer.h"
 #include <vulkan/vulkan.h>
+
+
+#include "Camera.h"
+#include "VulkanRenderer.h"
+#include "VulkanRayTracer.h"
+
 
 class Camera;
 class VulkanRenderer;
@@ -30,6 +33,7 @@ public:
     VulkanRenderer *getVulkanRenderer();
 
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
+    VkShaderModule createShaderModule(const QString &filename);
 
 signals:
     void cameraViewUpdate(QPoint m_delta);

@@ -9,7 +9,8 @@
 #include <QFile>
 #include <QVulkanWindow>
 #include <QVulkanFunctions>
-#include "vulkanwindow.h"
+
+#include "VulkanWindow.h"
 
 
 class VulkanWindow;
@@ -31,7 +32,7 @@ private:
     void initComputePipeline();
     
     QVulkanDeviceFunctions *m_devFuncs;
-    VkShaderModule createShaderModule(const QString &filename);
+    
 
     VkQueue m_computeQueue;
     

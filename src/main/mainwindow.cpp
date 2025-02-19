@@ -1,15 +1,9 @@
 #include <QVulkanFunctions>
 #include <QApplication>
 #include <QVBoxLayout>
-#include <QPlainTextEdit>
-#include <QPushButton>
-#include <QLCDNumber>
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QTabWidget>
-#include "mainwindow.h"
-#include "vulkanwindow.h"
-#include <QElapsedTimer>
+
+#include "MainWindow.h"
+#include "VulkanWindow.h"
 
 MainWindow::MainWindow(VulkanWindow *w)
     : m_window(w)

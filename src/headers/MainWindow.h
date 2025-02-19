@@ -1,13 +1,13 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "vulkanrenderer.h"
+#include "VulkanRenderer.h"
 #include <QWidget>
 #include <QTabWidget>
 #include <QPlainTextEdit>
 #include <QLCDNumber>
 #include <QCursor>
-#include "vulkanwindow.h"
+#include "VulkanWindow.h"
 
 class MainWindow : public QWidget
 {

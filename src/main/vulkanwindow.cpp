@@ -1,13 +1,48 @@
-#include "vulkanwindow.h"
-#include "vulkanrenderer.h"
+#include "VulkanWindow.h"
+#include "VulkanRenderer.h"
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QCursor>
 #include <QObject>
-#include "camera.h"
+#include "Camera.h"
 
 
+VkShaderModule VulkanWindow::createShaderModule(const QString& filename)
+{
+    VkShaderModule shaderModule = VK_NULL_HANDLE;
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning("Failed to read shader %s", qPrintable(filename));
+        return shaderModule;
+    }
 
+    QByteArray blob = file.readAll();
+    file.close();
+
+    VkShaderModuleCreateInfo shaderInfo = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .codeSize = static_cast<size_t>(blob.size()),
+        .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
+    };
+
+    QVulkanDeviceFunctions *devFuncs = this->vulkanInstance()->deviceFunctions(this->device());
+
+    VkResult result = devFuncs->vkCreateShaderModule(this->device(), &shaderInfo, nullptr, &shaderModule);
+
+    if (result != VK_SUCCESS) 
+    {
+        qWarning("Failed to create shader module: %d", result);
+        shaderModule = VK_NULL_HANDLE;
+    }
+    else
+    {
+        qDebug("Shaders loaded successfully!");
+    }
+
+    return shaderModule;
+}
 
 uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
 {

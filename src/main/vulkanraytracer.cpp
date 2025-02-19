@@ -1,46 +1,11 @@
 #include <vulkan/vulkan.h>
 #include <vector>
-#include "vulkanraytracer.h"
+#include "VulkanRayTracer.h"
 
 static const uint64_t render_width     = 1024;
 static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
-
-VkShaderModule VulkanRayTracer::createShaderModule(const QString& filename)
-{
-    VkShaderModule shaderModule;
-
-    QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning("Failed to read shader %s", qPrintable(filename));
-        shaderModule = VK_NULL_HANDLE;
-    }
-    QByteArray blob = file.readAll();
-    file.close();
-
-    VkShaderModuleCreateInfo shaderInfo = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .codeSize = static_cast<size_t>(blob.size()),
-        .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
-    };
-
-
-    VkResult result = m_devFuncs->vkCreateShaderModule(m_window->device(), &shaderInfo, nullptr, &shaderModule);
-    if (result != VK_SUCCESS) 
-    {
-        qWarning("Failed to create shader module: %d", result);
-        shaderModule = VK_NULL_HANDLE;
-    }
-    else
-    {
-        qDebug("Shaders loaded successfully!");
-    }
-
-    return shaderModule;
-}
 
 void VulkanRayTracer::onDeviceReady()
 {
@@ -56,9 +21,9 @@ void VulkanRayTracer::onDeviceReady()
 
 void VulkanRayTracer::initComputePipeline()
 {
+    VkResult result{};
     VkDevice dev = m_window->device();
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
-    VkResult result{};
 
     uint32_t computeQueueFamilyIndex = m_window->findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
@@ -238,7 +203,7 @@ void VulkanRayTracer::initComputePipeline()
     if (result != VK_SUCCESS)
         qDebug("Failed to create command pool: %d", result);
 
-    VkShaderModule rayTraceModule = createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
+    VkShaderModule rayTraceModule = m_window->createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo 
     {

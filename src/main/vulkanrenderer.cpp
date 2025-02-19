@@ -1,9 +1,9 @@
-#include "vulkanrenderer.h"
-#include "vulkanwindow.h"
+#include "VulkanRenderer.h"
+#include "VulkanWindow.h"
 #include <QVulkanFunctions>
 #include <QFile>
 #include <QObject>
-#include "camera.h"
+#include "Camera.h"
 #include <QThread>
 
 static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
@@ -85,30 +85,6 @@ static float vertexData[] = {
 static const int UNIFORM_MATRIX_DATA_SIZE = 16 * sizeof(float);
 static const int UNIFORM_VECTOR_DATA_SIZE = 3 * sizeof(float);
 
-uint32_t VulkanRenderer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
-{
-    uint32_t queueFamilyCount = 0;
-    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    uint32_t fallbackIndex = UINT32_MAX; // Fallback if a dedicated queue isn't found
-
-    for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        if (queueFamilies[i].queueFlags & bit) {
-            if ((bit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-                return i;  // Prefer a dedicated compute queue
-            }
-            if (fallbackIndex == UINT32_MAX) {
-                fallbackIndex = i;  // Save first matching queue in case a dedicated one isn't found
-            }
-        }
-    }
-    
-    return fallbackIndex;
-}
-
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
@@ -131,44 +107,6 @@ VulkanRenderer::VulkanRenderer(VulkanWindow *w)
     }
 }
 
-VkShaderModule VulkanRenderer::createShaderModule(const QString& filename)
-{
-    VkShaderModule shaderModule = VK_NULL_HANDLE;
-    QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning("Failed to read shader %s", qPrintable(filename));
-        return shaderModule;
-    }
-
-    QByteArray blob = file.readAll();
-    file.close();
-
-    VkShaderModuleCreateInfo shaderInfo = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .codeSize = static_cast<size_t>(blob.size()),
-        .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
-    };
-
-    VkResult result = m_devFuncs->vkCreateShaderModule(m_window->device(), &shaderInfo, nullptr, &shaderModule);
-
-    if (result != VK_SUCCESS) 
-    {
-        qWarning("Failed to create shader module: %d", result);
-        shaderModule = VK_NULL_HANDLE;
-    }
-    else
-    {
-        qDebug("Shaders loaded successfully!");
-    }
-
-    return shaderModule;
-}
-
-
-
-
 void VulkanRenderer::initResources()
 {
     VkResult result{};
@@ -178,7 +116,7 @@ void VulkanRenderer::initResources()
 
     emit m_helper->deviceReady();
 
-    uint32_t graphicsQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
+    uint32_t graphicsQueueFamilyIndex = m_window->findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (graphicsQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable graphics queue family found!");
 
@@ -586,8 +524,8 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkShaderModule vertShaderModule = createShaderModule(QStringLiteral(":/color_vert.spv"));
-    VkShaderModule fragShaderModule = createShaderModule(QStringLiteral(":/color_frag.spv"));
+    VkShaderModule vertShaderModule = m_window->createShaderModule(QStringLiteral(":/color_vert.spv"));
+    VkShaderModule fragShaderModule = m_window->createShaderModule(QStringLiteral(":/color_frag.spv"));
 
     VkPipelineShaderStageCreateInfo shaderStages[2] = {
         {

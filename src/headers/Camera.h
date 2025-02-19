@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QVector3D>
 #include <QVulkanWindow>
-#include "vulkanwindow.h"
+#include "VulkanWindow.h"
 
 class VulkanWindow;
 

@@ -8,22 +8,12 @@
 #include <mutex>
 #include "vulkansubmissionmanager.h"
 
-
-
-
 PushConstants pushConstants;
 
-static const uint64_t render_width     = 256;
-static const uint64_t render_height    = 256;
+static const uint64_t render_width     = 1024;
+static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
-
-
-
-
-
-
-
 
 uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
 {
@@ -177,7 +167,7 @@ void VulkanRayTracer::initRayTracing()
 
     PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR =
         (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(dev, "vkCmdTraceRaysKHR");
-
+    printf("vkCmdTraceRaysKHR: %p\n", (void*)vkCmdTraceRaysKHR);
 
 
 

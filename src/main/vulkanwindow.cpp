@@ -8,6 +8,7 @@
 
 
 
+
 uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
 {
     uint32_t queueFamilyCount = 0;
@@ -178,6 +179,21 @@ void VulkanWindow::deviceCreated()
         qDebug("No suitable compute queue family found!");
 
     devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
+    VkSubmitInfo submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 0,
+        .pCommandBuffers = nullptr,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &m_transferFinishedSemaphore
+    };
+
+    devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    devFuncs->vkQueueWaitIdle(m_computeQueue);  // Optional, depends on your needs
 
     m_submissionManager = new VulkanSubmissionManager(dev, m_computeQueue);
 }

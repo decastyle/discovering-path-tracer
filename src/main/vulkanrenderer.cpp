@@ -11,8 +11,8 @@
 
 #include "worker.h"
 
-static const uint64_t render_width     = 256; // TODO: Pass this data dynamically through Qt's GUI
-static const uint64_t render_height    = 256;
+static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
+static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
@@ -1560,7 +1560,7 @@ void VulkanRenderer::startNextFrame()
 {
     m_renderTimer.start();
 
-    m_window->m_submissionManager->submit();
+    
 
     VkDevice device = m_window->device();
 
@@ -1838,4 +1838,5 @@ void VulkanRenderer::startNextFrame()
 
     m_window->frameReady();
     m_window->requestUpdate(); 
+    m_window->m_submissionManager->submit();
 }

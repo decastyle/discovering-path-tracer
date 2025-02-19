@@ -98,13 +98,20 @@ uint32_t VulkanRenderer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, V
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
+    uint32_t fallbackIndex = UINT32_MAX; // Fallback if a dedicated queue isn't found
+
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
         if (queueFamilies[i].queueFlags & bit) {
-            return i;  
+            if ((bit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                return i;  // Prefer a dedicated compute queue
+            }
+            if (fallbackIndex == UINT32_MAX) {
+                fallbackIndex = i;  // Save first matching queue in case a dedicated one isn't found
+            }
         }
     }
     
-    return UINT32_MAX; 
+    return fallbackIndex;
 }
 
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
@@ -373,7 +380,7 @@ void VulkanRenderer::initResources()
 
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
-    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
@@ -1374,7 +1381,7 @@ void VulkanRenderer::initResources()
     QObject::connect(worker, &Worker::taskFinished, worker, &Worker::deleteLater, Qt::QueuedConnection);
     QObject::connect(thread, &QThread::finished, thread, &QThread::deleteLater, Qt::QueuedConnection);
 
-    QObject::connect(worker, &Worker::deviceReady, m_window->getVulkanRayTracer(), &VulkanRayTracer::onDeviceReady, Qt::QueuedConnection);
+    QObject::connect(worker, &Worker::deviceReady, raytracer, &VulkanRayTracer::onDeviceReady, Qt::QueuedConnection);
 
 
     thread->start();
@@ -1417,49 +1424,49 @@ void VulkanRenderer::initResources()
 
 
 
-    /////////////////////////////////////////////////////////////////////
-    // Logs
-    /////////////////////////////////////////////////////////////////////
+    // /////////////////////////////////////////////////////////////////////
+    // // Logs
+    // /////////////////////////////////////////////////////////////////////
 
-    QString info;
-    info += QString::asprintf("Number of physical devices: %d\n", int(m_window->availablePhysicalDevices().count()));
+    // QString info;
+    // info += QString::asprintf("Number of physical devices: %d\n", int(m_window->availablePhysicalDevices().count()));
 
-    QVulkanInstance *inst = m_window->vulkanInstance();
+    // QVulkanInstance *inst = m_window->vulkanInstance();
 
-    QVulkanFunctions *f = inst->functions();
-    VkPhysicalDeviceProperties props;
-    f->vkGetPhysicalDeviceProperties(m_window->physicalDevice(), &props);
-    info += QString::asprintf("Active physical device name: '%s' version %d.%d.%d\nAPI version %d.%d.%d\n",
-                              props.deviceName,
-                              VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion),
-                              VK_VERSION_PATCH(props.driverVersion),
-                              VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion),
-                              VK_VERSION_PATCH(props.apiVersion));
+    // QVulkanFunctions *f = inst->functions();
+    // VkPhysicalDeviceProperties props;
+    // f->vkGetPhysicalDeviceProperties(m_window->physicalDevice(), &props);
+    // info += QString::asprintf("Active physical device name: '%s' version %d.%d.%d\nAPI version %d.%d.%d\n",
+    //                           props.deviceName,
+    //                           VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion),
+    //                           VK_VERSION_PATCH(props.driverVersion),
+    //                           VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion),
+    //                           VK_VERSION_PATCH(props.apiVersion));
 
-    info += QStringLiteral("Supported instance layers:\n");
-    for (const QVulkanLayer &layer : inst->supportedLayers())
-        info += QString::asprintf("    %s v%u\n", layer.name.constData(), layer.version);
-    info += QStringLiteral("Enabled instance layers:\n");
-    for (const QByteArray &layer : inst->layers())
-        info += QString::asprintf("    %s\n", layer.constData());
+    // info += QStringLiteral("Supported instance layers:\n");
+    // for (const QVulkanLayer &layer : inst->supportedLayers())
+    //     info += QString::asprintf("    %s v%u\n", layer.name.constData(), layer.version);
+    // info += QStringLiteral("Enabled instance layers:\n");
+    // for (const QByteArray &layer : inst->layers())
+    //     info += QString::asprintf("    %s\n", layer.constData());
 
-    info += QStringLiteral("Supported instance extensions:\n");
-    for (const QVulkanExtension &ext : inst->supportedExtensions())
-        info += QString::asprintf("    %s v%u\n", ext.name.constData(), ext.version);
-    info += QStringLiteral("Enabled instance extensions:\n");
-    for (const QByteArray &ext : inst->extensions())
-        info += QString::asprintf("    %s\n", ext.constData());
+    // info += QStringLiteral("Supported instance extensions:\n");
+    // for (const QVulkanExtension &ext : inst->supportedExtensions())
+    //     info += QString::asprintf("    %s v%u\n", ext.name.constData(), ext.version);
+    // info += QStringLiteral("Enabled instance extensions:\n");
+    // for (const QByteArray &ext : inst->extensions())
+    //     info += QString::asprintf("    %s\n", ext.constData());
 
-    info += QString::asprintf("Color format: %u\nDepth-stencil format: %u\n",
-                              m_window->colorFormat(), m_window->depthStencilFormat());
+    // info += QString::asprintf("Color format: %u\nDepth-stencil format: %u\n",
+    //                           m_window->colorFormat(), m_window->depthStencilFormat());
 
-    info += QStringLiteral("Supported sample counts:");
-    const QList<int> sampleCounts = m_window->supportedSampleCounts();
-    for (int count : sampleCounts)
-        info += QLatin1Char(' ') + QString::number(count);
-    info += QLatin1Char('\n');
+    // info += QStringLiteral("Supported sample counts:");
+    // const QList<int> sampleCounts = m_window->supportedSampleCounts();
+    // for (int count : sampleCounts)
+    //     info += QLatin1Char(' ') + QString::number(count);
+    // info += QLatin1Char('\n');
 
-    emit static_cast<VulkanWindow *>(m_window)->vulkanInfoReceived(info);
+    // emit static_cast<VulkanWindow *>(m_window)->vulkanInfoReceived(info);
 }
 
 void VulkanRenderer::initSwapChainResources()
@@ -1809,12 +1816,12 @@ void VulkanRenderer::startNextFrame()
 
     
 
-    // // Add to submission manager, waiting on ray tracing
-    m_window->m_submissionManager->addCommandBuffer(cmdBuf,
-        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-        *m_window->getTransferFinishedSemaphore(), // Wait for transfer to finish
-        *m_window->getRenderFinishedSemaphore()    // Signal when rendering is done
-    ); 
+    // // // Add to submission manager, waiting on ray tracing
+    // m_window->m_submissionManager->addCommandBuffer(cmdBuf,
+    //     VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+    //     *m_window->getTransferFinishedSemaphore(), // Wait for transfer to finish
+    //     *m_window->getRenderFinishedSemaphore()    // Signal when rendering is done
+    // ); 
 
     
 

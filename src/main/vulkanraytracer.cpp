@@ -33,13 +33,27 @@ uint32_t VulkanRayTracer::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, 
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
+    uint32_t fallbackIndex = UINT32_MAX; // Fallback if a dedicated queue isn't found
+
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
+        bool supportsGraphics = queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT;
+        bool supportsCompute = queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT;
+
+        qDebug("Queue Family %d: Graphics=%d, Compute=%d", i, supportsGraphics, supportsCompute);
+
+
+
         if (queueFamilies[i].queueFlags & bit) {
-            return i;  
+            if ((bit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                return i;  // Prefer a dedicated compute queue
+            }
+            if (fallbackIndex == UINT32_MAX) {
+                fallbackIndex = i;  // Save first matching queue in case a dedicated one isn't found
+            }
         }
     }
     
-    return UINT32_MAX; 
+    return fallbackIndex;
 }
 
 
@@ -117,7 +131,7 @@ void VulkanRayTracer::initRayTracing()
 
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
 
-    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 

@@ -16,13 +16,20 @@ uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQ
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     this->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
+    uint32_t fallbackIndex = UINT32_MAX; // Fallback if a dedicated queue isn't found
+
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
         if (queueFamilies[i].queueFlags & bit) {
-            return i;  
+            if ((bit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                return i;  // Prefer a dedicated compute queue
+            }
+            if (fallbackIndex == UINT32_MAX) {
+                fallbackIndex = i;  // Save first matching queue in case a dedicated one isn't found
+            }
         }
     }
     
-    return UINT32_MAX; 
+    return fallbackIndex;
 }
 
 VulkanWindow::VulkanWindow()
@@ -166,7 +173,7 @@ void VulkanWindow::deviceCreated()
     devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore);
     devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_transferFinishedSemaphore);
 
-    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 

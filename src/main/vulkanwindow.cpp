@@ -36,100 +36,129 @@ uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQ
 VulkanWindow::VulkanWindow()
 {
 
-    this->setEnabledFeaturesModifier([this](VkPhysicalDeviceFeatures2 &features2) {
-        // Create feature structs with the required pNext chain
-        static VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-            .pNext = nullptr,
-            .rayTracingPipeline = VK_TRUE,
-            .rayTracingPipelineShaderGroupHandleCaptureReplay = VK_FALSE,
-            .rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
-            .rayTracingPipelineTraceRaysIndirect = VK_FALSE,
-            .rayTraversalPrimitiveCulling = VK_FALSE
-        };
+    // this->setEnabledFeaturesModifier([this](VkPhysicalDeviceFeatures2 &features2) {
+    //     // Create feature structs with the required pNext chain
+    //     static VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{
+    //         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+    //         .pNext = nullptr,
+    //         .rayTracingPipeline = VK_TRUE,
+    //         .rayTracingPipelineShaderGroupHandleCaptureReplay = VK_FALSE,
+    //         .rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
+    //         .rayTracingPipelineTraceRaysIndirect = VK_FALSE,
+    //         .rayTraversalPrimitiveCulling = VK_FALSE
+    //     };
     
-        static VkPhysicalDeviceAccelerationStructureFeaturesKHR accelStructureFeatures{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-            .pNext = nullptr,
-            .accelerationStructure = VK_TRUE,
-            .accelerationStructureCaptureReplay = VK_FALSE,
-            .accelerationStructureIndirectBuild = VK_FALSE,
-            .accelerationStructureHostCommands = VK_FALSE,
-            .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE
-        };
+    //     static VkPhysicalDeviceAccelerationStructureFeaturesKHR accelStructureFeatures{
+    //         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+    //         .pNext = nullptr,
+    //         .accelerationStructure = VK_TRUE,
+    //         .accelerationStructureCaptureReplay = VK_FALSE,
+    //         .accelerationStructureIndirectBuild = VK_FALSE,
+    //         .accelerationStructureHostCommands = VK_FALSE,
+    //         .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE
+    //     };
     
-        static VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-            .pNext = nullptr, 
-            .bufferDeviceAddress = VK_TRUE,
-            .bufferDeviceAddressCaptureReplay = VK_FALSE,
-            .bufferDeviceAddressMultiDevice = VK_FALSE
-        };
+    //     static VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{
+    //         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+    //         .pNext = nullptr, 
+    //         .bufferDeviceAddress = VK_TRUE,
+    //         .bufferDeviceAddressCaptureReplay = VK_FALSE,
+    //         .bufferDeviceAddressMultiDevice = VK_FALSE
+    //     };
 
-        static VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
-            .pNext = nullptr,
-            .shaderInputAttachmentArrayDynamicIndexing = VK_FALSE,
-            .shaderUniformTexelBufferArrayDynamicIndexing = VK_FALSE,
-            .shaderStorageTexelBufferArrayDynamicIndexing = VK_FALSE,
-            .shaderUniformBufferArrayNonUniformIndexing = VK_FALSE,
-            .shaderSampledImageArrayNonUniformIndexing = VK_FALSE,
-            .shaderStorageBufferArrayNonUniformIndexing = VK_FALSE,
-            .shaderStorageImageArrayNonUniformIndexing = VK_FALSE,
-            .shaderInputAttachmentArrayNonUniformIndexing = VK_FALSE,
-            .shaderUniformTexelBufferArrayNonUniformIndexing = VK_FALSE,
-            .shaderStorageTexelBufferArrayNonUniformIndexing = VK_FALSE,
-            .descriptorBindingUniformBufferUpdateAfterBind = VK_FALSE,
-            .descriptorBindingSampledImageUpdateAfterBind = VK_FALSE,
-            .descriptorBindingStorageImageUpdateAfterBind = VK_FALSE,
-            .descriptorBindingStorageBufferUpdateAfterBind = VK_FALSE,
-            .descriptorBindingUniformTexelBufferUpdateAfterBind = VK_FALSE,
-            .descriptorBindingStorageTexelBufferUpdateAfterBind = VK_FALSE,
-            .descriptorBindingUpdateUnusedWhilePending = VK_FALSE,
-            .descriptorBindingPartiallyBound = VK_TRUE,
-            .descriptorBindingVariableDescriptorCount = VK_FALSE,
-            .runtimeDescriptorArray = VK_TRUE
-        };
+    //     static VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{
+    //         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+    //         .pNext = nullptr,
+    //         .shaderInputAttachmentArrayDynamicIndexing = VK_FALSE,
+    //         .shaderUniformTexelBufferArrayDynamicIndexing = VK_FALSE,
+    //         .shaderStorageTexelBufferArrayDynamicIndexing = VK_FALSE,
+    //         .shaderUniformBufferArrayNonUniformIndexing = VK_FALSE,
+    //         .shaderSampledImageArrayNonUniformIndexing = VK_FALSE,
+    //         .shaderStorageBufferArrayNonUniformIndexing = VK_FALSE,
+    //         .shaderStorageImageArrayNonUniformIndexing = VK_FALSE,
+    //         .shaderInputAttachmentArrayNonUniformIndexing = VK_FALSE,
+    //         .shaderUniformTexelBufferArrayNonUniformIndexing = VK_FALSE,
+    //         .shaderStorageTexelBufferArrayNonUniformIndexing = VK_FALSE,
+    //         .descriptorBindingUniformBufferUpdateAfterBind = VK_FALSE,
+    //         .descriptorBindingSampledImageUpdateAfterBind = VK_FALSE,
+    //         .descriptorBindingStorageImageUpdateAfterBind = VK_FALSE,
+    //         .descriptorBindingStorageBufferUpdateAfterBind = VK_FALSE,
+    //         .descriptorBindingUniformTexelBufferUpdateAfterBind = VK_FALSE,
+    //         .descriptorBindingStorageTexelBufferUpdateAfterBind = VK_FALSE,
+    //         .descriptorBindingUpdateUnusedWhilePending = VK_FALSE,
+    //         .descriptorBindingPartiallyBound = VK_TRUE,
+    //         .descriptorBindingVariableDescriptorCount = VK_FALSE,
+    //         .runtimeDescriptorArray = VK_TRUE
+    //     };
 
-        static VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
-            .pNext = nullptr,
-            .scalarBlockLayout = VK_TRUE,
-        };
+    //     static VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures{
+    //         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
+    //         .pNext = nullptr,
+    //         .scalarBlockLayout = VK_TRUE,
+    //     };
     
-        // Link the pNext chain
-        rayTracingPipelineFeatures.pNext = &accelStructureFeatures;
-        accelStructureFeatures.pNext = &bufferDeviceAddressFeatures;
-        bufferDeviceAddressFeatures.pNext = &descriptorIndexingFeatures;
-        descriptorIndexingFeatures.pNext = &scalarBlockLayoutFeatures;
+    //     // Link the pNext chain
+    //     rayTracingPipelineFeatures.pNext = &accelStructureFeatures;
+    //     accelStructureFeatures.pNext = &bufferDeviceAddressFeatures;
+    //     bufferDeviceAddressFeatures.pNext = &descriptorIndexingFeatures;
+    //     descriptorIndexingFeatures.pNext = &scalarBlockLayoutFeatures;
     
-        // // Attach the chain to the features2 struct
-        features2.pNext = &rayTracingPipelineFeatures;
+    //     // // Attach the chain to the features2 struct
+    //     features2.pNext = &rayTracingPipelineFeatures;
     
-        // You can also enable basic features like samplerAnisotropy here if needed:
-        features2.features.samplerAnisotropy = VK_TRUE;
-        features2.features.sampleRateShading = VK_TRUE;
+    //     // You can also enable basic features like samplerAnisotropy here if needed:
+    //     features2.features.samplerAnisotropy = VK_TRUE;
+    //     features2.features.sampleRateShading = VK_TRUE;
+    // });
+    
+
+    // QByteArrayList requiredDeviceExtensions = {
+    //     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    //     VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    //     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    //     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    //     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+    //     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
+    //     // VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+    //     VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME     
+    // };
+
+    // this->setDeviceExtensions(requiredDeviceExtensions);
+
+    this->setQueueCreateInfoModifier([this](const VkQueueFamilyProperties * /*queueFamilies*/,
+                                            uint32_t /*queueFamilyCount*/,
+                                            QList<VkDeviceQueueCreateInfo> &queueCreateInfos) {
+        float priority = 1.0f;
+
+        uint32_t computeQueueFamilyIndex = this->findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+
+        if (computeQueueFamilyIndex == UINT32_MAX) {
+            qFatal("No suitable compute queue found");
+        }
+
+        // Check if we already requested this family
+        bool alreadyRequested = false;
+        for (auto &queueCreateInfo : queueCreateInfos) {
+            if (queueCreateInfo.queueFamilyIndex == computeQueueFamilyIndex) {
+                alreadyRequested = true;
+                queueCreateInfo.queueCount = std::max(queueCreateInfo.queueCount, 1u);
+                break;
+            }
+        }
+
+        if (!alreadyRequested) {
+            VkDeviceQueueCreateInfo computeQueueInfo{};
+            computeQueueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            computeQueueInfo.queueFamilyIndex = computeQueueFamilyIndex;
+            computeQueueInfo.queueCount = 1;
+            computeQueueInfo.pQueuePriorities = &priority;
+
+            queueCreateInfos.append(computeQueueInfo);
+        }
     });
     
-
-    QByteArrayList requiredDeviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
-        // VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME     
-    };
-
-    this->setDeviceExtensions(requiredDeviceExtensions);
-
-
-
-
-    
     QWindow::setCursor(Qt::OpenHandCursor);
+
     m_camera = new Camera(this);
     
     QObject::connect(this, &VulkanWindow::cameraViewUpdate, m_camera, &Camera::onCameraViewUpdate);
@@ -138,80 +167,41 @@ VulkanWindow::VulkanWindow()
 
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
-    
-
-
-
-
-
-
-
     m_renderer = new VulkanRenderer(this);
-    m_raytracer = new VulkanRayTracer(this);
+    m_rayTracer = new VulkanRayTracer(this);
 
-    QObject::connect(m_raytracer, &VulkanRayTracer::copySampledImage, m_renderer->m_helper, &VulkanRendererHelper::onCopySampledImageHelper);
     QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
+    QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::deviceReady, m_rayTracer, &VulkanRayTracer::onDeviceReady);
 
     return m_renderer;
 }
-
-
 
 void VulkanWindow::deviceCreated()
 {
     VkDevice dev = this->device();
 
     QVulkanDeviceFunctions *devFuncs = this->vulkanInstance()->deviceFunctions(dev);
-    
-    VkSemaphoreCreateInfo semaphoreInfo
-    { 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0
-    };
-
-    devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_rayTracingFinishedSemaphore);
-    devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore);
-    devFuncs->vkCreateSemaphore(dev, &semaphoreInfo, nullptr, &m_transferFinishedSemaphore);
 
     uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
     devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
-
-    VkSubmitInfo submitInfo{
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 0,
-        .pWaitSemaphores = nullptr,
-        .pWaitDstStageMask = nullptr,
-        .commandBufferCount = 0,
-        .pCommandBuffers = nullptr,
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &m_transferFinishedSemaphore
-    };
-
-    devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    devFuncs->vkQueueWaitIdle(m_computeQueue);  // Optional, depends on your needs
-
-    m_submissionManager = new VulkanSubmissionManager(dev, m_computeQueue);
-}
-
-VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
-{
-    return m_raytracer;
-}
-
-
-VulkanRenderer *VulkanWindow::getVulkanRenderer()
-{
-    return m_renderer;
 }
 
 Camera *VulkanWindow::getCamera()
 {
     return m_camera;
+}
+
+VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
+{
+    return m_rayTracer;
+}
+
+VulkanRenderer *VulkanWindow::getVulkanRenderer()
+{
+    return m_renderer;
 }
 
 void VulkanWindow::wheelEvent(QWheelEvent *event)
@@ -231,8 +221,6 @@ void VulkanWindow::wheelEvent(QWheelEvent *event)
 
     emit cameraZoomUpdate(m_zoom);
 }
-
-
 
 void VulkanWindow::mousePressEvent(QMouseEvent *event)
 {
@@ -296,25 +284,4 @@ void VulkanWindow::mouseReleaseEvent(QMouseEvent *event)
     {  
         QWindow::setCursor(Qt::OpenHandCursor);
     }
-}
-
-
-VkSemaphore *VulkanWindow::getRayTracingFinishedSemaphore()
-{
-    return &m_rayTracingFinishedSemaphore;
-}
-VkSemaphore *VulkanWindow::getRenderFinishedSemaphore()
-{
-    return &m_renderFinishedSemaphore;
-}
-
-VkSemaphore *VulkanWindow::getTransferFinishedSemaphore()
-{
-    return &m_transferFinishedSemaphore;
-}
-
-
-std::mutex *VulkanWindow::getQueueMutex()
-{
-    return &queueMutex;
 }

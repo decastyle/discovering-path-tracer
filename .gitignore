@@ -7,3 +7,4 @@
 build/
 *.spv
 *.qrc
+spir-v/

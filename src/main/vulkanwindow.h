@@ -10,40 +10,28 @@
 #include "vulkanrenderer.h"
 #include "vulkanraytracer.h"
 #include <vulkan/vulkan.h>
-#include "vulkansubmissionmanager.h"
 
 class Camera;
-
 class VulkanRenderer;
-
 class VulkanRayTracer;
-class VulkanSubmissionManager;
 
 class VulkanWindow : public QVulkanWindow
 {
     Q_OBJECT
-
 public:
     VulkanWindow();
     
     QVulkanWindowRenderer *createRenderer() override;
 
-    Camera *getCamera();
-
     void deviceCreated();
 
+    Camera *getCamera();
     VulkanRayTracer *getVulkanRayTracer();
     VulkanRenderer *getVulkanRenderer();
-    VkSemaphore *getRayTracingFinishedSemaphore();
-    VkSemaphore *getRenderFinishedSemaphore();
-    VkSemaphore *getTransferFinishedSemaphore();
 
-    VulkanSubmissionManager* m_submissionManager;
-
-    std::mutex *getQueueMutex();
+    uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
 
 signals:
-    void vulkanInfoReceived(const QString &text);
     void cameraViewUpdate(QPoint m_delta);
     void cameraZoomUpdate(float m_zoom);
 
@@ -54,19 +42,10 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
-    std::mutex queueMutex{}; 
-
     VkQueue m_computeQueue;
 
-    uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
-
-    
-
-    VkSemaphore m_renderFinishedSemaphore;
-    VkSemaphore m_rayTracingFinishedSemaphore;
-    VkSemaphore m_transferFinishedSemaphore;
     Camera *m_camera;
-    VulkanRayTracer *m_raytracer;
+    VulkanRayTracer *m_rayTracer;
     VulkanRenderer *m_renderer;
 
     QPoint m_delta{};

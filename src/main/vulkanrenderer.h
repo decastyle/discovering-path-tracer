@@ -8,9 +8,6 @@
 #include <vulkan/vulkan.h>
 #include <mutex>
 
-
-
-
 class VulkanWindow;
 class VulkanRenderer;
 
@@ -26,46 +23,24 @@ signals:
     void updateSwapChain();
     void deviceReady();
 
-public slots:
-    void onCopySampledImageHelper();
-
 private:
     VulkanRenderer *m_renderer;
-
 };
-
-
-
-
 
 class VulkanRenderer : public QVulkanWindowRenderer
 {
-
-
 public:
     VulkanRenderer(VulkanWindow *w);
 
     void initResources() override;
-
     void initSwapChainResources() override;
     void releaseSwapChainResources() override;
-
     void releaseResources() override;
-
     void startNextFrame() override;
 
     VulkanRendererHelper *m_helper;
-    void onCopySampledImage();
-
-    std::mutex *getQueueMutex()
-    {
-        return &queueMutex;
-    }
-
 
 protected:
-    std::mutex queueMutex;
-
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
 
@@ -83,13 +58,11 @@ protected:
     VkDescriptorBufferInfo m_uniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
     VkDescriptorImageInfo descImageInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
 
-    VkImage m_stagingImage = VK_NULL_HANDLE;
-    VkDeviceMemory m_stagingImageMemory = VK_NULL_HANDLE;
-    VkImageView m_stagingImageView = VK_NULL_HANDLE;
+    VkImage m_renderImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_renderImageMemory = VK_NULL_HANDLE;
+    VkImageView m_renderImageView = VK_NULL_HANDLE;
 
-    VkImage m_renderImage[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
-    VkDeviceMemory m_renderImageMemory[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
-    VkImageView m_renderImageView[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+
 
     VkSampler m_textureSampler;
 
@@ -101,7 +74,7 @@ protected:
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
-    VkQueue m_computeQueue;
+    VkQueue m_graphicsQueue;
 
     VkCommandPool m_cmdPool;
 

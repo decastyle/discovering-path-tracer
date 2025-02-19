@@ -16,14 +16,11 @@ class MainWindow : public QWidget
 public:
     MainWindow(VulkanWindow *w);
 
-public slots:
-    void onVulkanInfoReceived(const QString &text);
-
 private:
     VulkanWindow *m_window;
-    QTabWidget *m_infoTab;
-    QPlainTextEdit *m_info;
-    QLCDNumber *m_number;
+    // QTabWidget *m_infoTab;
+    // QPlainTextEdit *m_info;
+    // QLCDNumber *m_number;
 };
 
 #endif // MAINWINDOW_H

@@ -4,7 +4,6 @@
 #include <vulkan/vulkan.h>
 #include <QThread>
 #include <QLoggingCategory>
-#include "worker.h"
 #include "vulkanwindow.h"
 #include "vulkanrenderer.h"
 #include "mainwindow.h"
@@ -20,15 +19,15 @@ int main(int argc, char *argv[])
 
     instance.setApiVersion(QVersionNumber(1, 4));
 
-    instance.setExtensions({
-        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, 
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,       
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,         
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,             
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,          
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
-        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
-    });
+    // instance.setExtensions({
+    //     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, 
+    //     VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,       
+    //     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,         
+    //     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,             
+    //     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,          
+    //     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  
+    //     VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
+    // });
 
     
 

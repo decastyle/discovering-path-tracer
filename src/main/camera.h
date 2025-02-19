@@ -14,7 +14,6 @@ class Camera : public QObject
 
 public:
     Camera(VulkanWindow *w);
-
     QMatrix4x4 getProj();
     QVector3D getPos();
 

@@ -130,10 +130,12 @@ file(GLOB_RECURSE GLSL_FILES # i can't stop lol
 
 set(SPV_FILES "")
 
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/src/shaders/spir-v/)
+
 foreach(GLSL_FILE IN LISTS GLSL_FILES)
     get_filename_component(FILE_NAME ${GLSL_FILE} NAME_WE)
     get_filename_component(FILE_DIR ${GLSL_FILE} DIRECTORY)
-    set(SPV_FILE "${CMAKE_SOURCE_DIR}/src/shaders/${FILE_NAME}.spv")
+    set(SPV_FILE "${CMAKE_SOURCE_DIR}/src/shaders/spir-v/${FILE_NAME}.spv")
     message(STATUS "${SPV_FILE}")
 
     message(STATUS "Compiling ${GLSL_FILE} with:")
@@ -165,7 +167,7 @@ endforeach()
 #===================================#
 # Automatically discover shaders
 #
-file(GLOB RESOURCE_FILES "src/shaders/*.spv")
+file(GLOB RESOURCE_FILES "src/shaders/spir-v/*.spv")
 
 foreach(FILE ${RESOURCE_FILES})
     get_filename_component(FILENAME ${FILE} NAME)
@@ -181,7 +183,7 @@ file(APPEND ${QRC_FILE} "  <qresource>\n")
 
 foreach(SHADER_FILE ${RESOURCE_FILES})
     get_filename_component(FILE_NAME ${SHADER_FILE} NAME)
-    file(APPEND ${QRC_FILE} "    <file alias=\"${FILE_NAME}\">../shaders/${FILE_NAME}</file>\n")
+    file(APPEND ${QRC_FILE} "    <file alias=\"${FILE_NAME}\">../shaders/spir-v/${FILE_NAME}</file>\n")
 endforeach()
 
 file(APPEND ${QRC_FILE} "  </qresource>\n")
@@ -206,13 +208,6 @@ target_link_libraries(${PROJNAME} PRIVATE ${Vulkan_LIBRARIES})
 if(NOT Vulkan_FOUND)
     message(FATAL_ERROR "Vulkan SDK not found. Please set Vulkan_INCLUDE_DIRS and Vulkan_LIBRARIES manually.")
 endif()
-
-# # #=================================#
-# # volk configuration
-# #
-# add_subdirectory(external/volk)
-
-# target_link_libraries(${PROJNAME} PRIVATE volk::volk) 
 
 #=================================#
 # For convenient #include of header files

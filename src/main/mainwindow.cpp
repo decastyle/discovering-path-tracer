@@ -14,20 +14,18 @@
 MainWindow::MainWindow(VulkanWindow *w)
     : m_window(w)
 {
-    connect(m_window, &VulkanWindow::vulkanInfoReceived, this, &MainWindow::onVulkanInfoReceived);
-    
     QWidget *wrapper = QWidget::createWindowContainer(w);
 
-    m_info = new QPlainTextEdit;
-    m_info->setReadOnly(true);
+    // m_info = new QPlainTextEdit;
+    // m_info->setReadOnly(true);
 
-    m_number = new QLCDNumber(3);
-    m_number->setSegmentStyle(QLCDNumber::Filled);
+    // m_number = new QLCDNumber(3);
+    // m_number->setSegmentStyle(QLCDNumber::Filled);
 
-    QPushButton *quitButton = new QPushButton(tr("&Quit")   );
-    quitButton->setFocusPolicy(Qt::NoFocus);
+    // QPushButton *quitButton = new QPushButton(tr("&Quit")   );
+    // quitButton->setFocusPolicy(Qt::NoFocus);
 
-    connect(quitButton, &QPushButton::clicked, qApp, &QCoreApplication::quit);
+    // connect(quitButton, &QPushButton::clicked, qApp, &QCoreApplication::quit);
 
     QVBoxLayout *layout = new QVBoxLayout;
     // m_infoTab = new QTabWidget(this);
@@ -40,7 +38,3 @@ MainWindow::MainWindow(VulkanWindow *w)
     setLayout(layout);
 }
 
-void MainWindow::onVulkanInfoReceived(const QString &text)
-{
-    m_info->setPlainText(text);
-}

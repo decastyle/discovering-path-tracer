@@ -6,7 +6,7 @@ set(PROJNAME "discovering-path-tracer")
 project(${PROJNAME} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20) # For designated initializers  
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(VULKAN_TARGET_ENV vulkan1.4)
+# set(VULKAN_TARGET_ENV vulkan1.2)
 
 #=================================#
 # Flags for debugging (qDebug, no optimization)
@@ -146,7 +146,7 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
     execute_process(
         COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} 
         -V 
-        --target-env ${VULKAN_TARGET_ENV}
+        # --target-env ${VULKAN_TARGET_ENV}
         ${GLSL_FILE} -o ${SPV_FILE}
         RESULT_VARIABLE COMPILE_RESULT
         OUTPUT_VARIABLE COMPILE_OUTPUT

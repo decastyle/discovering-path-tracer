@@ -1,18 +1,17 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "VulkanRenderer.h"
 #include <QWidget>
 #include <QTabWidget>
 #include <QPlainTextEdit>
 #include <QLCDNumber>
 #include <QCursor>
+
+#include "VulkanRenderer.h"
 #include "VulkanWindow.h"
 
 class MainWindow : public QWidget
 {
-    Q_OBJECT
-    
 public:
     MainWindow(VulkanWindow *VulkanWindow);
 

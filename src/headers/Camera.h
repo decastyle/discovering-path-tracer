@@ -4,14 +4,13 @@
 #include <QObject>
 #include <QVector3D>
 #include <QVulkanWindow>
+
 #include "VulkanWindow.h"
 
 class VulkanWindow;
 
-class Camera : public QObject
+class Camera
 {
-    Q_OBJECT
-    
 public:
     Camera(VulkanWindow *w);
 

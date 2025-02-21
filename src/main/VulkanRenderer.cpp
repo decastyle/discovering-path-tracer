@@ -160,7 +160,7 @@ void VulkanRenderer::initResources()
         .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
     };
 
-    VkResult result = m_deviceFunctions->vkAllocateMemory(device, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
+    result = m_deviceFunctions->vkAllocateMemory(device, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
     if (result != VK_SUCCESS)
     {
         qWarning("Failed to allocate vertex memory (error code: %d)", result);
@@ -186,7 +186,7 @@ void VulkanRenderer::initResources()
         .pQueueFamilyIndices = nullptr
     };
 
-    VkResult result = m_deviceFunctions->vkCreateBuffer(device, &vertexStagingBufferCreateInfo, nullptr, &m_vertexStagingBuffer);
+    result = m_deviceFunctions->vkCreateBuffer(device, &vertexStagingBufferCreateInfo, nullptr, &m_vertexStagingBuffer);
     if (result != VK_SUCCESS)
     {
         qWarning("Failed to create staging buffer (error code: %d)", result);
@@ -1083,6 +1083,8 @@ void VulkanRenderer::startNextFrame()
 {
     m_renderTimer.start();
 
+    VkResult result{};
+
     VkDevice device = m_vulkanWindow->device();
     QSize swapChainSize = m_vulkanWindow->swapChainImageSize();
     VkCommandBuffer commandBuffer = m_vulkanWindow->currentCommandBuffer();
@@ -1155,7 +1157,7 @@ void VulkanRenderer::startNextFrame()
     
     quint8 *p;
 
-    VkResult result = m_deviceFunctions->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[currentFrame].offset,
+    result = m_deviceFunctions->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[currentFrame].offset,
             UNIFORM_MATRIX_DATA_SIZE + UNIFORM_VECTOR_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
     if (result != VK_SUCCESS)
     {

@@ -15,10 +15,8 @@
 
 class VulkanWindow;
 
-class VulkanRayTracer : public QObject
+class VulkanRayTracer 
 {
-    Q_OBJECT
-
 public:
     VulkanRayTracer(VulkanWindow *w);
 

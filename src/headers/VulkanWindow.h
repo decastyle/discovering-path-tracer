@@ -8,11 +8,9 @@
 #include <QCursor>
 #include <vulkan/vulkan.h>
 
-
 #include "Camera.h"
 #include "VulkanRenderer.h"
 #include "VulkanRayTracer.h"
-
 
 class Camera;
 class VulkanRenderer;
@@ -20,7 +18,6 @@ class VulkanRayTracer;
 
 class VulkanWindow : public QVulkanWindow
 {
-    Q_OBJECT
 public:
     VulkanWindow();
     

@@ -11,31 +11,31 @@ class VulkanWindow;
 class Camera : public QObject
 {
     Q_OBJECT
-
+    
 public:
     Camera(VulkanWindow *w);
-    QMatrix4x4 getProj();
-    QVector3D getPos();
 
-public slots:
-    void onCameraViewUpdate(QPoint m_delta);
-    void onCameraZoomUpdate(float m_zoom);
-    void onUpdateSwapChain();
+    QMatrix4x4 getProjectionMatrix();
+    QVector3D getPosition();
+
+    void swapChainUpdate();
+    void cameraViewUpdate(QPoint m_deltaCursorPosition);
+    void cameraZoomUpdate(float m_zoom);
 
 private:
-    void updateProjection();
-    VulkanWindow *m_window;
+    VulkanWindow *m_vulkanWindow;
 
-    QVector3D m_cameraPos{};    
+    QVector3D m_cameraPosition{};    
 
     QQuaternion m_rotation{};
-    QMatrix4x4 m_proj{}; 
+    QMatrix4x4 m_projectionMatrix{}; 
     QMatrix4x4 m_updatedMatrix{};
 
-    float m_sensitivity;
-    float m_fov;      
-    float m_radius;
-    float m_yaw, m_pitch;
+    float m_fov = 60.0f;
+    float m_sensitivity = 0.25f;
+    float m_radius = 0.9f;  
+    float m_yaw = 0.0f;
+    float m_pitch = 0.0f;
 };
 
 #endif // CAMERA_H

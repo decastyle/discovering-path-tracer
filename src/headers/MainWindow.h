@@ -12,12 +12,12 @@
 class MainWindow : public QWidget
 {
     Q_OBJECT
-
+    
 public:
-    MainWindow(VulkanWindow *w);
+    MainWindow(VulkanWindow *VulkanWindow);
 
 private:
-    VulkanWindow *m_window;
+    VulkanWindow *m_vulkanWindow;
     // QTabWidget *m_infoTab;
     // QPlainTextEdit *m_info;
     // QLCDNumber *m_number;

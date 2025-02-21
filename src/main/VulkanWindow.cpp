@@ -10,8 +10,10 @@
 VkShaderModule VulkanWindow::createShaderModule(const QString& filename)
 {
     VkShaderModule shaderModule = VK_NULL_HANDLE;
+
     QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly)) {
+    if (!file.open(QIODevice::ReadOnly)) 
+    {
         qWarning("Failed to read shader %s", qPrintable(filename));
         return shaderModule;
     }
@@ -27,9 +29,9 @@ VkShaderModule VulkanWindow::createShaderModule(const QString& filename)
         .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
     };
 
-    QVulkanDeviceFunctions *devFuncs = this->vulkanInstance()->deviceFunctions(this->device());
+    QVulkanDeviceFunctions *deviceFunctions = this->vulkanInstance()->deviceFunctions(this->device());
 
-    VkResult result = devFuncs->vkCreateShaderModule(this->device(), &shaderInfo, nullptr, &shaderModule);
+    VkResult result = deviceFunctions->vkCreateShaderModule(this->device(), &shaderInfo, nullptr, &shaderModule);
 
     if (result != VK_SUCCESS) 
     {
@@ -44,7 +46,7 @@ VkShaderModule VulkanWindow::createShaderModule(const QString& filename)
     return shaderModule;
 }
 
-uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit)
+uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits queueFlagBit)
 {
     uint32_t queueFamilyCount = 0;
     this->vulkanInstance()->functions()->vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
@@ -54,13 +56,13 @@ uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQ
 
     uint32_t fallbackIndex = UINT32_MAX; // Fallback if a dedicated queue isn't found
 
-    for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        if (queueFamilies[i].queueFlags & bit) {
-            if ((bit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-                return i;  // Prefer a dedicated compute queue
+    for (uint32_t queueFamilyIndex = 0; queueFamilyIndex < queueFamilyCount; queueFamilyIndex++) {
+        if (queueFamilies[queueFamilyIndex].queueFlags & queueFlagBit) {
+            if ((queueFlagBit == VK_QUEUE_COMPUTE_BIT) && !(queueFamilies[queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                return queueFamilyIndex;  // Prefer a dedicated compute queue
             }
             if (fallbackIndex == UINT32_MAX) {
-                fallbackIndex = i;  // Save first matching queue in case a dedicated one isn't found
+                fallbackIndex = queueFamilyIndex;  // Save first matching queue in case a dedicated one isn't found
             }
         }
     }
@@ -196,52 +198,32 @@ VulkanWindow::VulkanWindow()
 
     m_camera = new Camera(this);
     
-    QObject::connect(this, &VulkanWindow::cameraViewUpdate, m_camera, &Camera::onCameraViewUpdate);
-    QObject::connect(this, &VulkanWindow::cameraZoomUpdate, m_camera, &Camera::onCameraZoomUpdate);
 }
 
 QVulkanWindowRenderer *VulkanWindow::createRenderer()
 {
-    m_renderer = new VulkanRenderer(this);
-    m_rayTracer = new VulkanRayTracer(this);
+    m_vulkanRenderer = new VulkanRenderer(this);
+    m_vulkanRayTracer = new VulkanRayTracer(this);
 
-    QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::updateSwapChain, m_camera, &Camera::onUpdateSwapChain);
-    QObject::connect(m_renderer->m_helper, &VulkanRendererHelper::deviceReady, m_rayTracer, &VulkanRayTracer::onDeviceReady);
-
-    return m_renderer;
+    return m_vulkanRenderer;
 }
 
 void VulkanWindow::deviceCreated()
 {
-    VkDevice dev = this->device();
+    // VkDevice device = this->device();
 
-    QVulkanDeviceFunctions *devFuncs = this->vulkanInstance()->deviceFunctions(dev);
+    // QVulkanDeviceFunctions *deviceFunctions = this->vulkanInstance()->deviceFunctions(device);
 
-    uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
-    if (computeQueueFamilyIndex == UINT32_MAX)
-        qDebug("No suitable compute queue family found!");
+    // uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
+    // if (computeQueueFamilyIndex == UINT32_MAX)
+    //     qDebug("No suitable compute queue family found!");
 
-    devFuncs->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
-}
-
-Camera *VulkanWindow::getCamera()
-{
-    return m_camera;
-}
-
-VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
-{
-    return m_rayTracer;
-}
-
-VulkanRenderer *VulkanWindow::getVulkanRenderer()
-{
-    return m_renderer;
+    // deviceFunctions->vkGetDeviceQueue(device, computeQueueFamilyIndex, 0, &m_computeQueue);
 }
 
 void VulkanWindow::wheelEvent(QWheelEvent *event)
 {
-    qDebug() << event->angleDelta().y();
+    // qDebug() << event->angleDelta().y();
     
     m_zoom = 1.0;
     
@@ -254,14 +236,14 @@ void VulkanWindow::wheelEvent(QWheelEvent *event)
         m_zoom = 1.1;
     }
 
-    emit cameraZoomUpdate(m_zoom);
+    m_camera->cameraZoomUpdate(m_zoom);
 }
 
 void VulkanWindow::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) 
     {
-        m_lastCursorPos = event->pos();  
+        m_lastCursorPosition = event->pos();  
         QWindow::setCursor(Qt::ClosedHandCursor);
     }
 }
@@ -275,41 +257,47 @@ void VulkanWindow::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
-    QPoint globalPos = mapToGlobal(event->pos());
+    QPoint globalPosition = mapToGlobal(event->pos());
     QRect windowRect = this->geometry();
     QPoint topLeft = mapToGlobal(QPoint(0, 0));
     int width = windowRect.width();
     int height = windowRect.height();
 
-    QPoint newPos = globalPos;  // Default, no change
+    QPoint newPosition = globalPosition;  // Default, no change
 
     // Check if we need to wrap
-    if (globalPos.x() >= topLeft.x() + width) {
-        newPos.setX(topLeft.x());  // Wrap to left
+    if (globalPosition.x() >= topLeft.x() + width)
+    {
+        newPosition.setX(topLeft.x());  // Wrap to left
         justWarped = true;
-    } else if (globalPos.x() < topLeft.x()) {
-        newPos.setX(topLeft.x() + width - 1);  // Wrap to right
+    } 
+    else if (globalPosition.x() < topLeft.x()) 
+    {
+        newPosition.setX(topLeft.x() + width - 1);  // Wrap to right
         justWarped = true;
     }
-    if (globalPos.y() >= topLeft.y() + height) {
-        newPos.setY(topLeft.y());  // Wrap to top
+    if (globalPosition.y() >= topLeft.y() + height) 
+    {
+        newPosition.setY(topLeft.y());  // Wrap to top
         justWarped = true;
-    } else if (globalPos.y() < topLeft.y()) {
-        newPos.setY(topLeft.y() + height - 1);  // Wrap to bottom
+    } 
+    else if (globalPosition.y() < topLeft.y()) 
+    {
+        newPosition.setY(topLeft.y() + height - 1);  // Wrap to bottom
         justWarped = true;
     }
 
     if (justWarped) {
-        QCursor::setPos(newPos);
-        m_lastCursorPos = mapFromGlobal(newPos);  // **Update only after warp**
+        QCursor::setPos(newPosition);
+        m_lastCursorPosition = mapFromGlobal(newPosition);  // **Update only after warp**
         return;
     }
 
     if (event->buttons() & Qt::LeftButton) 
     {
-        m_delta = event->pos() - m_lastCursorPos;
-        m_lastCursorPos = event->pos();
-        emit cameraViewUpdate(m_delta);
+        m_deltaCursorPosition = event->pos() - m_lastCursorPosition;
+        m_lastCursorPosition = event->pos();
+        m_camera->cameraViewUpdate(m_deltaCursorPosition);
     }
 }
 
@@ -319,4 +307,19 @@ void VulkanWindow::mouseReleaseEvent(QMouseEvent *event)
     {  
         QWindow::setCursor(Qt::OpenHandCursor);
     }
+}
+
+Camera *VulkanWindow::getCamera()
+{
+    return m_camera;
+}
+
+VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
+{
+    return m_vulkanRayTracer;
+}
+
+VulkanRenderer *VulkanWindow::getVulkanRenderer()
+{
+    return m_vulkanRenderer;
 }

@@ -18,35 +18,32 @@ class VulkanWindow;
 class VulkanRayTracer : public QObject
 {
     Q_OBJECT
+
 public:
     VulkanRayTracer(VulkanWindow *w);
 
     VkImage getStorageImage();
-
-public slots:
-    void onDeviceReady(); // TODO: Find a better way to initialize device (right now ray-tracer waits for renderer to initialize it through QVulkanWindow)
+    void deviceReady();
 
 private:
-    VulkanWindow *m_window;
+    VulkanWindow *m_vulkanWindow;
+    QVulkanDeviceFunctions *m_deviceFunctions;
 
-    void initComputePipeline();
+    void initComputePipeline();    
     
-    QVulkanDeviceFunctions *m_devFuncs;
-    
+    VkImage m_storageImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
+    VkImageView m_storageImageView = VK_NULL_HANDLE;
 
-    VkQueue m_computeQueue;
-    
-    VkImage m_storageImage;
-    VkDeviceMemory m_storageImageMemory;
-    VkImageView m_storageImageView;
-
-    VkDescriptorPool m_descPool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSet m_descSet = VK_NULL_HANDLE;
+    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
 
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_computePipeline = VK_NULL_HANDLE;
+
+    VkQueue m_computeQueue = VK_NULL_HANDLE;
 };
 
 #endif // VULKANRAYTRACER_H

@@ -90,18 +90,16 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
 
-VulkanRenderer::VulkanRenderer(VulkanWindow *w)
-    : m_window(w)
+VulkanRenderer::VulkanRenderer(VulkanWindow *vulkanWindow)
+    : m_vulkanWindow(vulkanWindow)
 {   
-    m_helper = new VulkanRendererHelper(this);
-
-    const QList<int> counts = w->supportedSampleCounts();
+    const QList<int> counts = vulkanWindow->supportedSampleCounts();
 
     qDebug() << "Supported sample counts:" << counts;
     for (int s = 16; s >= 4; s /= 2) {
         if (counts.contains(s)) {
             qDebug("Requesting sample count %d", s);
-            m_window->setSampleCount(s);
+            m_vulkanWindow->setSampleCount(s);
             break;
         }
     }
@@ -110,22 +108,21 @@ VulkanRenderer::VulkanRenderer(VulkanWindow *w)
 void VulkanRenderer::initResources()
 {
     VkResult result{};
-    // QVulkanInstance *inst = m_window->vulkanInstance();
-    VkDevice dev = m_window->device();
-    m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
+    // QVulkanInstance *inst = m_vulkanWindow->vulkanInstance();
+    VkDevice device = m_vulkanWindow->device();
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(device);
+    m_vulkanWindow->getVulkanRayTracer()->deviceReady();
 
-    emit m_helper->deviceReady();
-
-    uint32_t graphicsQueueFamilyIndex = m_window->findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
+    uint32_t graphicsQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (graphicsQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable graphics queue family found!");
 
-    m_devFuncs->vkGetDeviceQueue(dev, graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
+    m_deviceFunctions->vkGetDeviceQueue(device, graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
 
-    const int concurrentFrameCount = m_window->concurrentFrameCount(); 
+    const int concurrentFrameCount = m_vulkanWindow->concurrentFrameCount(); 
     qDebug() << "Concurrent frame count:" << concurrentFrameCount;
     
-    const VkPhysicalDeviceLimits *pdevLimits = &m_window->physicalDeviceProperties()->limits;
+    const VkPhysicalDeviceLimits *pdevLimits = &m_vulkanWindow->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
     const float maxSamplerAnisotropy = pdevLimits->maxSamplerAnisotropy;
     qDebug("Uniform buffer offset alignment is %u", (uint) uniAlign);
@@ -135,7 +132,7 @@ void VulkanRenderer::initResources()
     /////////////////////////////////////////////////////////////////////
 
     // Create vertex buffer
-    VkBufferCreateInfo vertexBufferInfo = {
+    VkBufferCreateInfo vertexBufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -146,30 +143,39 @@ void VulkanRenderer::initResources()
         .pQueueFamilyIndices = nullptr
     };
 
-    result = m_devFuncs->vkCreateBuffer(dev, &vertexBufferInfo, nullptr, &m_vertexBuffer);
+    result = m_deviceFunctions->vkCreateBuffer(device, &vertexBufferCreateInfo, nullptr, &m_vertexBuffer);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create vertex buffer: %d", result);
+    {
+        qWarning("Failed to create vertex buffer (error code: %d)", result);
+        return;
+    }
 
     VkMemoryRequirements vertexBufferMemoryRequirements;
-    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_vertexBuffer, &vertexBufferMemoryRequirements);
+    m_deviceFunctions->vkGetBufferMemoryRequirements(device, m_vertexBuffer, &vertexBufferMemoryRequirements);
 
     VkMemoryAllocateInfo vertexBufferMemoryAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = nullptr,
         .allocationSize = vertexBufferMemoryRequirements.size,
-        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+        .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
     };
 
-    result = m_devFuncs->vkAllocateMemory(dev, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
+    VkResult result = m_deviceFunctions->vkAllocateMemory(device, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
     if (result != VK_SUCCESS)
-        qDebug("Failed to allocate vertex memory: %d", result);
+    {
+        qWarning("Failed to allocate vertex memory (error code: %d)", result);
+        return; 
+    }
 
-    result = m_devFuncs->vkBindBufferMemory(dev, m_vertexBuffer, m_vertexMemory, 0);
+    result = m_deviceFunctions->vkBindBufferMemory(device, m_vertexBuffer, m_vertexMemory, 0);
     if (result != VK_SUCCESS)
-        qDebug("Failed to bind vertex buffer memory: %d", result);
+    {
+        qWarning("Failed to bind vertex buffer memory (error code: %d)", result);
+        return; 
+    }
 
     // Create staging buffer
-    VkBufferCreateInfo vertexStagingBufferInfo = {
+    VkBufferCreateInfo vertexStagingBufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -180,97 +186,121 @@ void VulkanRenderer::initResources()
         .pQueueFamilyIndices = nullptr
     };
 
-    result = m_devFuncs->vkCreateBuffer(dev, &vertexStagingBufferInfo, nullptr, &m_vertexStagingBuffer);
+    VkResult result = m_deviceFunctions->vkCreateBuffer(device, &vertexStagingBufferCreateInfo, nullptr, &m_vertexStagingBuffer);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create staging buffer: %d", result);
+    {
+        qWarning("Failed to create staging buffer (error code: %d)", result);
+        return;
+    }
 
     VkMemoryRequirements vertexStagingBufferMemoryRequirements;
-    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_vertexStagingBuffer, &vertexStagingBufferMemoryRequirements);
+    m_deviceFunctions->vkGetBufferMemoryRequirements(device, m_vertexStagingBuffer, &vertexStagingBufferMemoryRequirements);
 
     VkMemoryAllocateInfo vertexStagingBufferMemoryAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = nullptr,
         .allocationSize = vertexStagingBufferMemoryRequirements.size,
-        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+        .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
     };
 
-    result = m_devFuncs->vkAllocateMemory(dev, &vertexStagingBufferMemoryAllocateInfo, nullptr, &m_vertexStagingMemory);
+    result = m_deviceFunctions->vkAllocateMemory(device, &vertexStagingBufferMemoryAllocateInfo, nullptr, &m_vertexStagingMemory);
     if (result != VK_SUCCESS)
-        qDebug("Failed to allocate staging memory: %d", result);
+    {
+        qWarning("Failed to allocate staging memory (error code: %d)", result);
+        return;
+    }
 
-    result = m_devFuncs->vkBindBufferMemory(dev, m_vertexStagingBuffer, m_vertexStagingMemory, 0);
+    result = m_deviceFunctions->vkBindBufferMemory(device, m_vertexStagingBuffer, m_vertexStagingMemory, 0);
     if (result != VK_SUCCESS)
-        qDebug("Failed to bind staging buffer memory: %d", result);
+    {
+        qWarning("Failed to bind staging buffer memory (error code: %d)", result);
+        return;
+    }
 
-    quint8 *pStaging;
-
-    result = m_devFuncs->vkMapMemory(dev, m_vertexStagingMemory, 0, vertexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
+    quint8 *pStaging = nullptr;
+    result = m_deviceFunctions->vkMapMemory(device, m_vertexStagingMemory, 0, vertexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
     if (result != VK_SUCCESS)
-        qDebug("Failed to map staging memory: %d", result);
+    {
+        qWarning("Failed to map staging memory (error code: %d)", result);
+        return;
+    }
 
     memcpy(pStaging, vertexData, sizeof(vertexData));
-    m_devFuncs->vkUnmapMemory(dev, m_vertexStagingMemory);
+    m_deviceFunctions->vkUnmapMemory(device, m_vertexStagingMemory);
 
     // Create uniform buffer
-    const VkDeviceSize uniformBufferSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign) + aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign);
+    const VkDeviceSize uniformBufferDeviceSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign) + aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign);
 
-    VkBufferCreateInfo uniformBufferInfo = {
+    VkBufferCreateInfo uniformBufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .size = uniformBufferSize * concurrentFrameCount,
+        .size = uniformBufferDeviceSize * concurrentFrameCount,
         .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr
     };
     
-    result = m_devFuncs->vkCreateBuffer(dev, &uniformBufferInfo, nullptr, &m_uniformBuffer);
+    result = m_deviceFunctions->vkCreateBuffer(device, &uniformBufferCreateInfo, nullptr, &m_uniformBuffer);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create uniform buffer: %d", result);
+    {
+        qWarning("Failed to create uniform buffer (error code: %d)", result);
+        return;
+    }
 
     VkMemoryRequirements uniformBufferMemoryRequirements;
-    m_devFuncs->vkGetBufferMemoryRequirements(dev, m_uniformBuffer, &uniformBufferMemoryRequirements);
+    m_deviceFunctions->vkGetBufferMemoryRequirements(device, m_uniformBuffer, &uniformBufferMemoryRequirements);
 
     VkMemoryAllocateInfo uniformBufferMemoryAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = nullptr,
         .allocationSize = uniformBufferMemoryRequirements.size,
-        .memoryTypeIndex = m_window->hostVisibleMemoryIndex()
+        .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
     };
 
-    result = m_devFuncs->vkAllocateMemory(dev, &uniformBufferMemoryAllocateInfo, nullptr, &m_uniformMemory);
+    result = m_deviceFunctions->vkAllocateMemory(device, &uniformBufferMemoryAllocateInfo, nullptr, &m_uniformMemory);
     if (result != VK_SUCCESS)
-        qDebug("Failed to allocate uniform memory: %d", result);
+    {
+        qWarning("Failed to allocate uniform memory (error code: %d)", result);
+        return;
+    }
 
-    result = m_devFuncs->vkBindBufferMemory(dev, m_uniformBuffer, m_uniformMemory, 0);
+    result = m_deviceFunctions->vkBindBufferMemory(device, m_uniformBuffer, m_uniformMemory, 0);
     if (result != VK_SUCCESS)
-        qDebug("Failed to bind uniform buffer memory: %d", result);
+    {
+        qWarning("Failed to bind uniform buffer memory (error code: %d)", result);
+        return;
+    }
 
-    quint8 *pUniform;
-    result = m_devFuncs->vkMapMemory(dev, m_uniformMemory, 0, uniformBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pUniform));
+    quint8 *pUniform = nullptr;
+    result = m_deviceFunctions->vkMapMemory(device, m_uniformMemory, 0, uniformBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pUniform));
     if (result != VK_SUCCESS)
-        qDebug("Failed to map uniform memory: %d", result);
+    {
+        qWarning("Failed to map uniform memory (error code: %d)", result);
+        return;
+    }
 
-    QMatrix4x4 ident;
+    QMatrix4x4 identityMatrix;
 
-    for (int i = 0; i < concurrentFrameCount; ++i) {
-        const VkDeviceSize offset = i * uniformBufferSize;
-        memcpy(pUniform + offset, ident.constData(), 16 * sizeof(float));
+    for (int i = 0; i < concurrentFrameCount; ++i) 
+    {
+        const VkDeviceSize offset = i * uniformBufferDeviceSize;
+        memcpy(pUniform + offset, identityMatrix.constData(), 16 * sizeof(float));
 
         m_uniformBufferInfo[i] = VkDescriptorBufferInfo{
             .buffer = m_uniformBuffer,
             .offset = offset,
-            .range = uniformBufferSize
+            .range = uniformBufferDeviceSize
         };
     }
-    m_devFuncs->vkUnmapMemory(dev, m_uniformMemory);
+    m_deviceFunctions->vkUnmapMemory(device, m_uniformMemory);
 
     /////////////////////////////////////////////////////////////////////
     // Create image and image view
     /////////////////////////////////////////////////////////////////////
 
-    VkImageCreateInfo imageInfo 
+    VkImageCreateInfo imageCreateInfo 
     {
         .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext         = nullptr,
@@ -289,28 +319,34 @@ void VulkanRenderer::initResources()
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
-    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_renderImage);
+    result = m_deviceFunctions->vkCreateImage(device, &imageCreateInfo, nullptr, &m_renderImage);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create image: %d", result);
+    {
+        qWarning("Failed to create image (error code: %d)", result);
+        return;
+    }
 
     VkMemoryRequirements storageImageMemoryRequirements;
-    m_devFuncs->vkGetImageMemoryRequirements(dev, m_renderImage, &storageImageMemoryRequirements);
+    m_deviceFunctions->vkGetImageMemoryRequirements(device, m_renderImage, &storageImageMemoryRequirements);
     
-    VkMemoryAllocateInfo allocInfo 
+    VkMemoryAllocateInfo memoryAllocateInfo 
     {
         .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext           = nullptr,
         .allocationSize  = storageImageMemoryRequirements.size,
-        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+        .memoryTypeIndex = m_vulkanWindow->deviceLocalMemoryIndex()
     };    
     
-    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_renderImageMemory);
+    result = m_deviceFunctions->vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &m_renderImageMemory);
     if (result != VK_SUCCESS)
-        qDebug("Failed to allocate image memory: %d", result);
+    {
+        qWarning("Failed to allocate image memory (error code: %d)", result);
+        return;
+    }
     
-    m_devFuncs->vkBindImageMemory(dev, m_renderImage, m_renderImageMemory, 0);
+    m_deviceFunctions->vkBindImageMemory(device, m_renderImage, m_renderImageMemory, 0);
 
-    VkImageViewCreateInfo viewInfo 
+    VkImageViewCreateInfo imageViewCreateInfo 
     {
         .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext            = nullptr,
@@ -328,11 +364,15 @@ void VulkanRenderer::initResources()
         }
     };    
 
-    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_renderImageView);
+    result = m_deviceFunctions->vkCreateImageView(device, &imageViewCreateInfo, nullptr, &m_renderImageView);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create image view: %d", result);
+    {
+        qWarning("Failed to create image view (error code: %d)", result);
+        return;
+    }
 
-    VkSamplerCreateInfo samplerInfo{
+    VkSamplerCreateInfo samplerCreateInfo
+    {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
@@ -353,15 +393,18 @@ void VulkanRenderer::initResources()
             .unnormalizedCoordinates = VK_FALSE,
         };
 
-    result = m_devFuncs->vkCreateSampler(dev, &samplerInfo, nullptr, &m_textureSampler);
+    result = m_deviceFunctions->vkCreateSampler(device, &samplerCreateInfo, nullptr, &m_textureSampler);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create sampler: %d", result);
+    {
+        qWarning("Failed to create sampler (error code: %d)", result);
+        return;
+    }
 
     /////////////////////////////////////////////////////////////////////
     // Create command buffer
     /////////////////////////////////////////////////////////////////////
 
-    VkCommandPoolCreateInfo cmdPoolInfo 
+    VkCommandPoolCreateInfo commandPoolCreateInfo 
     {
         .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext            = nullptr,
@@ -369,27 +412,33 @@ void VulkanRenderer::initResources()
         .queueFamilyIndex = graphicsQueueFamilyIndex
     };
     
-    VkCommandPool cmdPool;
+    VkCommandPool commandPool;
 
-    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
+    result = m_deviceFunctions->vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create command pool: %d", result);
+    {
+        qWarning("Failed to create command pool (error code: %d)", result);
+        return;
+    }
 
-    VkCommandBufferAllocateInfo cmdAllocInfo 
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo 
     {
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .pNext              = nullptr,
-        .commandPool        = cmdPool,
+        .commandPool        = commandPool,
         .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
     };
 
-    VkCommandBuffer cmdBuffer;
-    result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+    VkCommandBuffer commandBuffer;
+    result = m_deviceFunctions->vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer);
     if (result != VK_SUCCESS)
-        qDebug("Failed to allocate command buffer: %d", result);
+    {
+        qWarning("Failed to allocate command buffer (error code: %d)", result);
+        return;
+    }
 
-    VkCommandBufferBeginInfo beginInfo 
+    VkCommandBufferBeginInfo commandBufferBeginInfo 
     {
         .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext            = nullptr,
@@ -397,9 +446,12 @@ void VulkanRenderer::initResources()
         .pInheritanceInfo = nullptr
     };
     
-    result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+    result = m_deviceFunctions->vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
     if (result != VK_SUCCESS)
-        qDebug("Failed to begin command buffer: %d", result);
+    {
+        qWarning("Failed to begin command buffer (error code: %d)", result);
+        return;
+    }
 
     VkImageMemoryBarrier imageMemoryBarrierToTransferDst
     {
@@ -421,7 +473,8 @@ void VulkanRenderer::initResources()
         }
     };  
 
-    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    m_deviceFunctions->vkCmdPipelineBarrier(
+    commandBuffer,
     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
     VK_PIPELINE_STAGE_TRANSFER_BIT,
     0,
@@ -429,7 +482,7 @@ void VulkanRenderer::initResources()
     0, nullptr, 
     1, &imageMemoryBarrierToTransferDst);   
 
-    VkImageCopy copyRegion
+    VkImageCopy bufferCopyRegion
     {
         .srcSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -452,16 +505,16 @@ void VulkanRenderer::initResources()
         }
     };
 
-    VulkanRayTracer *raytracer = m_window->getVulkanRayTracer();
-    VkImage storageImage = raytracer->getStorageImage(); 
+    VulkanRayTracer *vulkanRayTracer = m_vulkanWindow->getVulkanRayTracer();
+    VkImage storageImage = vulkanRayTracer->getStorageImage(); 
 
-    m_devFuncs->vkCmdCopyImage(
-        cmdBuffer, 
+    m_deviceFunctions->vkCmdCopyImage(
+        commandBuffer, 
         storageImage, 
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
         m_renderImage, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-        1, &copyRegion);
+        1, &bufferCopyRegion);
 
     VkImageMemoryBarrier imageMemoryBarrierToShaderRead
     {
@@ -483,7 +536,7 @@ void VulkanRenderer::initResources()
         }
     };  
 
-    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer,
     VK_PIPELINE_STAGE_TRANSFER_BIT,
     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
     0,
@@ -491,9 +544,12 @@ void VulkanRenderer::initResources()
     0, nullptr, 
     1, &imageMemoryBarrierToShaderRead);   
 
-    result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
+    result = m_deviceFunctions->vkEndCommandBuffer(commandBuffer);
     if (result != VK_SUCCESS)
-        qDebug("Failed to end command buffer: %d", result);
+    {
+        qWarning("Failed to end command buffer (error code: %d)", result);
+        return;
+    }
 
     VkSubmitInfo submitInfo 
     {
@@ -503,18 +559,24 @@ void VulkanRenderer::initResources()
         .pWaitSemaphores      = nullptr,
         .pWaitDstStageMask    = nullptr,
         .commandBufferCount   = 1,
-        .pCommandBuffers      = &cmdBuffer,
+        .pCommandBuffers      = &commandBuffer,
         .signalSemaphoreCount = 0,
         .pSignalSemaphores    = nullptr
     };   
 
-    result = m_devFuncs->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    result = m_deviceFunctions->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (result != VK_SUCCESS)
-        qDebug("Failed to submit command buffer to graphics queue: %d", result);
+    {
+        qWarning("Failed to submit command buffer to graphics queue (error code: %d)", result);
+        return;
+    }
 
-    result = m_devFuncs->vkQueueWaitIdle(m_graphicsQueue);
+    result = m_deviceFunctions->vkQueueWaitIdle(m_graphicsQueue);
     if (result != VK_SUCCESS)
-        qDebug("Failed to wait for graphics queue: %d", result);
+    {
+        qWarning("Failed to wait for graphics queue (error code: %d)", result);
+        return;
+    }
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline shader stages
@@ -524,8 +586,8 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkShaderModule vertShaderModule = m_window->createShaderModule(QStringLiteral(":/color_vert.spv"));
-    VkShaderModule fragShaderModule = m_window->createShaderModule(QStringLiteral(":/color_frag.spv"));
+    VkShaderModule vertexShaderModule = m_vulkanWindow->createShaderModule(QStringLiteral(":/color_vert.spv"));
+    VkShaderModule fragmentShaderModule = m_vulkanWindow->createShaderModule(QStringLiteral(":/color_frag.spv"));
 
     VkPipelineShaderStageCreateInfo shaderStages[2] = {
         {
@@ -533,7 +595,7 @@ void VulkanRenderer::initResources()
             .pNext = nullptr,
             .flags = 0,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = vertShaderModule,
+            .module = vertexShaderModule,
             .pName = "main",
             .pSpecializationInfo = nullptr
         },
@@ -542,7 +604,7 @@ void VulkanRenderer::initResources()
             .pNext = nullptr,
             .flags = 0,
             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = fragShaderModule,
+            .module = fragmentShaderModule,
             .pName = "main",
             .pSpecializationInfo = nullptr
         }
@@ -560,13 +622,13 @@ void VulkanRenderer::initResources()
 
     // TODO: Update vertex input binding description, it should include vertices, normals and UV coordinates
 
-    VkVertexInputBindingDescription vertexBindingDesc = {
+    VkVertexInputBindingDescription vertexInputBindingDescription = {
         .binding = 0,
         .stride = 8 * sizeof(float),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
-    VkVertexInputAttributeDescription vertexAttrDesc[] = {
+    VkVertexInputAttributeDescription vertexInputAttributeDescription[] = {
         { // position
             .location = 0,
             .binding = 0,
@@ -587,14 +649,14 @@ void VulkanRenderer::initResources()
         }
     };
 
-    VkPipelineVertexInputStateCreateInfo vertexInputState = {
+    VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &vertexBindingDesc,
+        .pVertexBindingDescriptions = &vertexInputBindingDescription,
         .vertexAttributeDescriptionCount = 3,
-        .pVertexAttributeDescriptions = vertexAttrDesc
+        .pVertexAttributeDescriptions = vertexInputAttributeDescription
     };
 
     /////////////////////////////////////////////////////////////////////
@@ -611,7 +673,7 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {
+    VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -628,7 +690,7 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineViewportStateCreateInfo viewportState = {
+    VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -645,7 +707,7 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineRasterizationStateCreateInfo rasterizationState = {
+    VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -668,11 +730,11 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineMultisampleStateCreateInfo multisampleState = {
+    VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .rasterizationSamples = m_window->sampleCountFlagBits(),
+        .rasterizationSamples = m_vulkanWindow->sampleCountFlagBits(),
         .sampleShadingEnable = VK_TRUE,
         .minSampleShading = 1.0f,           // Optional
         .pSampleMask = nullptr,            // Optional
@@ -687,7 +749,7 @@ void VulkanRenderer::initResources()
     */
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineDepthStencilStateCreateInfo depthStencilState = {
+    VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -707,7 +769,7 @@ void VulkanRenderer::initResources()
     // Pipeline color blend state
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {
+    VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = {
         .blendEnable = VK_FALSE,
         .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
         .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
@@ -718,14 +780,14 @@ void VulkanRenderer::initResources()
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
     };
 
-    VkPipelineColorBlendStateCreateInfo colorBlendState = {
+    VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .logicOpEnable = VK_FALSE,
         .logicOp = VK_LOGIC_OP_COPY, // Optional
         .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachmentState,
+        .pAttachments = &pipelineColorBlendAttachmentState,
         .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f} // Optional
     };
 
@@ -743,7 +805,7 @@ void VulkanRenderer::initResources()
         VK_DYNAMIC_STATE_SCISSOR 
     };
 
-    VkPipelineDynamicStateCreateInfo dynamicState = {
+    VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -755,7 +817,7 @@ void VulkanRenderer::initResources()
     // Set up descriptor set and its layout
     /////////////////////////////////////////////////////////////////////
 
-    VkDescriptorPoolSize descPoolSizes[]
+    VkDescriptorPoolSize descriptorPoolSizes[]
     {
         {
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -767,20 +829,20 @@ void VulkanRenderer::initResources()
         }
     };
 
-    VkDescriptorPoolCreateInfo descPoolInfo = {
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .maxSets = static_cast<uint32_t>(concurrentFrameCount),
         .poolSizeCount = 2,
-        .pPoolSizes = descPoolSizes
+        .pPoolSizes = descriptorPoolSizes
     };
 
-    result = m_devFuncs->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descPool);
+    result = m_deviceFunctions->vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &m_descriptorPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create descriptor pool: %d", result);
 
-    VkDescriptorSetLayoutBinding layoutBinding[] 
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[] 
     {
         {
             .binding = 0,
@@ -798,36 +860,42 @@ void VulkanRenderer::initResources()
         },
     };
 
-    VkDescriptorSetLayoutCreateInfo descLayoutInfo = {
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .bindingCount = 2,
-        .pBindings = layoutBinding
+        .pBindings = descriptorSetLayoutBinding
     };
 
-    result = m_devFuncs->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descSetLayout);
+    result = m_deviceFunctions->vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, nullptr, &m_descriptorSetLayout);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create descriptor set layout: %d", result);
+    {
+        qWarning("Failed to create descriptor set layout (error code: %d)", result);
+        return;
+    }
 
     for (int i = 0; i < concurrentFrameCount; ++i) {
 
-        VkDescriptorSetAllocateInfo descSetAllocInfo = {
+        VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
             .pNext = nullptr,
-            .descriptorPool = m_descPool,
+            .descriptorPool = m_descriptorPool,
             .descriptorSetCount = 1,
-            .pSetLayouts = &m_descSetLayout
+            .pSetLayouts = &m_descriptorSetLayout
         };
 
-        result = m_devFuncs->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descSet[i]);
+        result = m_deviceFunctions->vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &m_descriptorSet[i]);
         if (result != VK_SUCCESS)
-            qDebug("Failed to allocate descriptor set: %d", result);
+        {
+            qWarning("Failed to allocate descriptor set (error code: %d)", result);
+            return;
+        }
 
-        VkWriteDescriptorSet descWrite = {
+        VkWriteDescriptorSet uniformBufferWrite = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = nullptr,
-            .dstSet = m_descSet[i],
+            .dstSet = m_descriptorSet[i],
             .dstBinding = 0,
             .dstArrayElement = 0,
             .descriptorCount = 1,
@@ -837,7 +905,7 @@ void VulkanRenderer::initResources()
             .pTexelBufferView = nullptr
         };
 
-        VkDescriptorImageInfo descImageInfo 
+        VkDescriptorImageInfo m_descriptorImageInfo 
         {
             .sampler = m_textureSampler,
             .imageView = m_renderImageView,
@@ -848,26 +916,26 @@ void VulkanRenderer::initResources()
         {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = nullptr,
-            .dstSet = m_descSet[i],
+            .dstSet = m_descriptorSet[i],
             .dstBinding = 1, // Binding 1 is for storage image
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &descImageInfo,
+            .pImageInfo = &m_descriptorImageInfo,
             .pBufferInfo = nullptr,
             .pTexelBufferView = nullptr
         };
 
-        VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite, descWrite };
+        VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite, uniformBufferWrite };
         
-        m_devFuncs->vkUpdateDescriptorSets(dev, 2, descriptorWrites, 0, nullptr);
+        m_deviceFunctions->vkUpdateDescriptorSets(device, 2, descriptorWrites, 0, nullptr);
     }
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline layout
     /////////////////////////////////////////////////////////////////////
 
-    VkPipelineCacheCreateInfo pipelineCacheInfo = {
+    VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
@@ -875,23 +943,29 @@ void VulkanRenderer::initResources()
         .pInitialData = nullptr
     };
 
-    result = m_devFuncs->vkCreatePipelineCache(dev, &pipelineCacheInfo, nullptr, &m_pipelineCache);
+    result = m_deviceFunctions->vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &m_pipelineCache);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create pipeline cache: %d", result);
+    {
+        qWarning("Failed to create pipeline cache (error code: %d)", result);
+        return;
+    }
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .setLayoutCount = 1,
-        .pSetLayouts = &m_descSetLayout,
+        .pSetLayouts = &m_descriptorSetLayout,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr
     };
-    
-    result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
+
+    result = m_deviceFunctions->vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create pipeline layout: %d", result);
+    {
+        qWarning("Failed to create pipeline layout (error code: %d)", result);
+        return;
+    }
 
     /////////////////////////////////////////////////////////////////////
     // Graphics pipeline
@@ -903,41 +977,44 @@ void VulkanRenderer::initResources()
         .flags = 0,
         .stageCount = 2,
         .pStages = shaderStages,
-        .pVertexInputState = &vertexInputState,
-        .pInputAssemblyState = &inputAssemblyState,
+        .pVertexInputState = &pipelineVertexInputStateCreateInfo,
+        .pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo,
         .pTessellationState = nullptr,
-        .pViewportState = &viewportState,
-        .pRasterizationState = &rasterizationState,
-        .pMultisampleState = &multisampleState,
-        .pDepthStencilState = &depthStencilState,
-        .pColorBlendState = &colorBlendState,
-        .pDynamicState = &dynamicState,
+        .pViewportState = &pipelineViewportStateCreateInfo,
+        .pRasterizationState = &pipelineRasterizationStateCreateInfo,
+        .pMultisampleState = &pipelineMultisampleStateCreateInfo,
+        .pDepthStencilState = &pipelineDepthStencilStateCreateInfo,
+        .pColorBlendState = &pipelineColorBlendStateCreateInfo,
+        .pDynamicState = &pipelineDynamicStateCreateInfo,
         .layout = m_pipelineLayout,
-        .renderPass = m_window->defaultRenderPass(),
+        .renderPass = m_vulkanWindow->defaultRenderPass(),
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1
     };
 
-    result = m_devFuncs->vkCreateGraphicsPipelines(dev, m_pipelineCache, 1, &pipelineInfo, nullptr, &m_pipeline);
+    result = m_deviceFunctions->vkCreateGraphicsPipelines(device, m_pipelineCache, 1, &pipelineInfo, nullptr, &m_pipeline);
     if (result != VK_SUCCESS)
-        qDebug("Failed to create graphics pipeline: %d", result);
+    {
+        qWarning("Failed to create graphics pipeline (error code: %d)", result);
+        return;
+    }
 
     /////////////////////////////////////////////////////////////////////
     // Clean up
     /////////////////////////////////////////////////////////////////////
 
-    if (vertShaderModule)
-        m_devFuncs->vkDestroyShaderModule(dev, vertShaderModule, nullptr);
-    if (fragShaderModule)
-        m_devFuncs->vkDestroyShaderModule(dev, fragShaderModule, nullptr);
+    if (vertexShaderModule)
+        m_deviceFunctions->vkDestroyShaderModule(device, vertexShaderModule, nullptr);
+    if (fragmentShaderModule)
+        m_deviceFunctions->vkDestroyShaderModule(device, fragmentShaderModule, nullptr);
 }
 
 void VulkanRenderer::initSwapChainResources()
 {
     qDebug("initSwapChainResources");
 
-    emit m_helper->updateSwapChain();
+    m_vulkanWindow->getCamera()->swapChainUpdate();
 }
 
 void VulkanRenderer::releaseSwapChainResources()
@@ -949,55 +1026,55 @@ void VulkanRenderer::releaseResources()
 {
     qDebug("releaseResources");
 
-    VkDevice dev = m_window->device();
+    VkDevice device = m_vulkanWindow->device();
 
     if (m_pipeline) {
-        m_devFuncs->vkDestroyPipeline(dev, m_pipeline, nullptr);
+        m_deviceFunctions->vkDestroyPipeline(device, m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;
     }
 
     if (m_pipelineLayout) {
-        m_devFuncs->vkDestroyPipelineLayout(dev, m_pipelineLayout, nullptr);
+        m_deviceFunctions->vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
         m_pipelineLayout = VK_NULL_HANDLE;
     }
 
     if (m_pipelineCache) {
-        m_devFuncs->vkDestroyPipelineCache(dev, m_pipelineCache, nullptr);
+        m_deviceFunctions->vkDestroyPipelineCache(device, m_pipelineCache, nullptr);
         m_pipelineCache = VK_NULL_HANDLE;
     }
 
-    if (m_descSetLayout) {
-        m_devFuncs->vkDestroyDescriptorSetLayout(dev, m_descSetLayout, nullptr);
-        m_descSetLayout = VK_NULL_HANDLE;
+    if (m_descriptorSetLayout) {
+        m_deviceFunctions->vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
+        m_descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    if (m_descPool) {
-        m_devFuncs->vkDestroyDescriptorPool(dev, m_descPool, nullptr);
-        m_descPool = VK_NULL_HANDLE;
+    if (m_descriptorPool) {
+        m_deviceFunctions->vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
+        m_descriptorPool = VK_NULL_HANDLE;
     }
 
     if (m_vertexBuffer) {
-        m_devFuncs->vkDestroyBuffer(dev, m_vertexBuffer, nullptr);
+        m_deviceFunctions->vkDestroyBuffer(device, m_vertexBuffer, nullptr);
         m_vertexBuffer = VK_NULL_HANDLE;
     }
 
     if (m_vertexStagingBuffer) {
-        m_devFuncs->vkDestroyBuffer(dev, m_vertexStagingBuffer, nullptr);
+        m_deviceFunctions->vkDestroyBuffer(device, m_vertexStagingBuffer, nullptr);
         m_vertexStagingBuffer = VK_NULL_HANDLE;
     }
 
     if (m_uniformBuffer) {
-        m_devFuncs->vkDestroyBuffer(dev, m_uniformBuffer, nullptr);
+        m_deviceFunctions->vkDestroyBuffer(device, m_uniformBuffer, nullptr);
         m_uniformBuffer = VK_NULL_HANDLE;
     }
 
     if (m_vertexStagingMemory) {
-        m_devFuncs->vkFreeMemory(dev, m_vertexStagingMemory, nullptr);
+        m_deviceFunctions->vkFreeMemory(device, m_vertexStagingMemory, nullptr);
         m_vertexStagingMemory = VK_NULL_HANDLE;
     }
 
     if (m_uniformMemory) {
-        m_devFuncs->vkFreeMemory(dev, m_uniformMemory, nullptr);
+        m_deviceFunctions->vkFreeMemory(device, m_uniformMemory, nullptr);
         m_uniformMemory = VK_NULL_HANDLE;
     }
 }
@@ -1006,30 +1083,22 @@ void VulkanRenderer::startNextFrame()
 {
     m_renderTimer.start();
 
-    VkDevice device = m_window->device();
-
-    const QSize sz = m_window->swapChainImageSize();
-
-    VkCommandBuffer cmdBuffer = m_window->currentCommandBuffer();
-
-    uint32_t currentFrame = m_window->currentFrame();
-
-    
-
-
-
+    VkDevice device = m_vulkanWindow->device();
+    QSize swapChainSize = m_vulkanWindow->swapChainImageSize();
+    VkCommandBuffer commandBuffer = m_vulkanWindow->currentCommandBuffer();
+    uint32_t currentFrame = m_vulkanWindow->currentFrame();
 
     /////////////////////////////////////////////////////////////////////
     // Copy staging buffer to vertex buffer
     /////////////////////////////////////////////////////////////////////
 
-    VkBufferCopy copyRegion = {
+    VkBufferCopy bufferCopyRegion = {
         .srcOffset = 0,
         .dstOffset = 0,
         .size = sizeof(vertexData)
     };
 
-    m_devFuncs->vkCmdCopyBuffer(cmdBuffer, m_vertexStagingBuffer, m_vertexBuffer, 1, &copyRegion);
+    m_deviceFunctions->vkCmdCopyBuffer(commandBuffer, m_vertexStagingBuffer, m_vertexBuffer, 1, &bufferCopyRegion);
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline barrier to ensure staging buffer copy completes before rendering
@@ -1044,8 +1113,8 @@ void VulkanRenderer::startNextFrame()
         .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
     };
 
-    m_devFuncs->vkCmdPipelineBarrier(
-        cmdBuffer,
+    m_deviceFunctions->vkCmdPipelineBarrier(
+        commandBuffer,
         VK_PIPELINE_STAGE_TRANSFER_BIT,         
         VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,    
         0,
@@ -1058,27 +1127,27 @@ void VulkanRenderer::startNextFrame()
     // Begin render pass
     /////////////////////////////////////////////////////////////////////
 
-    VkClearColorValue clearColor = { .float32 = { 0.3f, 0.3f, 0.3f, 1.0f } };
+    VkClearColorValue clearColorValue = { .float32 = { 0.3f, 0.3f, 0.3f, 1.0f } };
 
-    VkClearDepthStencilValue clearDS = { .depth = 1.0f, .stencil = 0 };
+    VkClearDepthStencilValue clearDepthStencilValue = { .depth = 1.0f, .stencil = 0 };
 
     VkClearValue clearValues[3] = {
-        { .color = clearColor },
-        { .depthStencil = clearDS },
-        { .color = clearColor }
+        { .color = clearColorValue },
+        { .depthStencil = clearDepthStencilValue },
+        { .color = clearColorValue }
     };
 
-    VkRenderPassBeginInfo rpBeginInfo = {
+    VkRenderPassBeginInfo renderPassBeginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = nullptr,
-        .renderPass = m_window->defaultRenderPass(),
-        .framebuffer = m_window->currentFramebuffer(),
-        .renderArea = { .offset = { 0, 0 }, .extent = { static_cast<uint32_t>(sz.width()), static_cast<uint32_t>(sz.height()) } },
-        .clearValueCount = static_cast<uint32_t>(m_window->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3 : 2),
+        .renderPass = m_vulkanWindow->defaultRenderPass(),
+        .framebuffer = m_vulkanWindow->currentFramebuffer(),
+        .renderArea = { .offset = { 0, 0 }, .extent = { static_cast<uint32_t>(swapChainSize.width()), static_cast<uint32_t>(swapChainSize.height()) } },
+        .clearValueCount = static_cast<uint32_t>(m_vulkanWindow->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3 : 2),
         .pClearValues = clearValues
     };
 
-    m_devFuncs->vkCmdBeginRenderPass(cmdBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    m_deviceFunctions->vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     /////////////////////////////////////////////////////////////////////
     // Map projection matrix
@@ -1086,62 +1155,69 @@ void VulkanRenderer::startNextFrame()
     
     quint8 *p;
 
-    VkResult result = m_devFuncs->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[currentFrame].offset,
+    VkResult result = m_deviceFunctions->vkMapMemory(device, m_uniformMemory, m_uniformBufferInfo[currentFrame].offset,
             UNIFORM_MATRIX_DATA_SIZE + UNIFORM_VECTOR_DATA_SIZE, 0, reinterpret_cast<void **>(&p));
     if (result != VK_SUCCESS)
-        qDebug("Failed to map memory: %d", result);
+    {
+        qWarning("Failed to map memory");
+        return;
+    }
 
-    Camera *camera = m_window->getCamera();
+    Camera *camera = m_vulkanWindow->getCamera();
 
-    QMatrix4x4 m = camera->getProj();
-    QVector3D pos = camera->getPos();
+    QMatrix4x4 projectionMatrix = camera->getProjectionMatrix();
+    QVector3D cameraPosition = camera->getPosition();
 
-    memcpy(p, m.constData(), 16 * sizeof(float));
-    memcpy(p + UNIFORM_MATRIX_DATA_SIZE, &pos, 3 * sizeof(float));
+    memcpy(p, projectionMatrix.constData(), 16 * sizeof(float));
+    memcpy(p + UNIFORM_MATRIX_DATA_SIZE, &cameraPosition, 3 * sizeof(float));
 
-    m_devFuncs->vkUnmapMemory(device, m_uniformMemory);
+    m_deviceFunctions->vkUnmapMemory(device, m_uniformMemory);
 
     /////////////////////////////////////////////////////////////////////
     // Bind pipeline
     /////////////////////////////////////////////////////////////////////
 
-    m_devFuncs->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    m_deviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-    m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                               &m_descSet[m_window->currentFrame()], 0, nullptr);
+    m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
+                               &m_descriptorSet[m_vulkanWindow->currentFrame()], 0, nullptr);
 
-    VkDeviceSize vbOffset = 0;
-    m_devFuncs->vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexBuffer, &vbOffset);
+    VkDeviceSize vertexBufferOffset = 0;
+    m_deviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &m_vertexBuffer, &vertexBufferOffset);
 
     VkViewport viewport = {
         .x = 0,
         .y = 0,
-        .width = static_cast<float>(sz.width()),
-        .height = static_cast<float>(sz.height()),
+        .width = static_cast<float>(swapChainSize.width()),
+        .height = static_cast<float>(swapChainSize.height()),
         .minDepth = 0,
         .maxDepth = 1
     };
 
-    m_devFuncs->vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+    m_deviceFunctions->vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor = {
         .offset = {0, 0},
-        .extent = { static_cast<uint32_t>(viewport.width), static_cast<uint32_t>(viewport.height) }
+        .extent = { 
+            static_cast<uint32_t>(viewport.width), 
+            static_cast<uint32_t>(viewport.height) 
+        }
     };
-    m_devFuncs->vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+    m_deviceFunctions->vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 8;  // Each vertex has 9 elements (x, y, z, x, y, z, u, v)
+    // Calculate vertex count (each vertex has 8 elements: position, normal, and UV)
+    // (x, y, z, x, y, z, u, v)
+    const uint32_t vertexCount = sizeof(vertexData) / sizeof(vertexData[0]) / 8;  
 
-    m_devFuncs->vkCmdDraw(cmdBuffer, vertexCount, 1, 0, 0);
+    m_deviceFunctions->vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
 
-    m_devFuncs->vkCmdEndRenderPass(cmdBuffer);
+    m_deviceFunctions->vkCmdEndRenderPass(commandBuffer);
 
-    qint64 m_renderTimeNs = m_renderTimer.nsecsElapsed();
+    qint64 renderTimeNs = m_renderTimer.nsecsElapsed();
+    double fps = 1e9/(static_cast<double>(renderTimeNs));
 
-    double m_fps = 1e9/(static_cast<double>(m_renderTimeNs));
+    qDebug().nospace() << "Render time: " << (renderTimeNs / 1.0e6) << " ms, FPS: " << fps;
 
-    qDebug() << "Render time:" << m_renderTimeNs / 1.0e6 << "ms, FPS:" << m_fps;
-
-    m_window->frameReady();
-    m_window->requestUpdate(); 
+    m_vulkanWindow->frameReady();
+    m_vulkanWindow->requestUpdate(); 
 }

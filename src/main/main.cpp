@@ -31,9 +31,6 @@ int main(int argc, char *argv[])
     //     VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
     // });
 
-    
-
-
     if(DEBUG) 
     {
         QLoggingCategory::setFilterRules(QStringLiteral("qt.vulkan=true"));

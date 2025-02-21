@@ -1,36 +1,25 @@
 #include "Camera.h"
 #include "VulkanWindow.h" 
 
-Camera::Camera(VulkanWindow *w) : m_window(w)
+Camera::Camera(VulkanWindow *w) : m_vulkanWindow(w)
 {
-    m_fov = 60.0f;
-    m_sensitivity = 0.25f;
-    m_radius = 0.9f;  
-    m_yaw = 0.0f;
-    m_pitch = 0.0f;
-
     QVector3D offset(0, 0, m_radius);
-    m_cameraPos = m_rotation.rotatedVector(offset);
-    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
+    m_cameraPosition = m_rotation.rotatedVector(offset);
+    m_updatedMatrix.lookAt(m_cameraPosition, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
 }
 
-void Camera::onUpdateSwapChain()
-{
-    updateProjection();
-}
+void Camera::swapChainUpdate() {
+    QSize swapChainSize = m_vulkanWindow->swapChainImageSize();
+    float aspectRatio = swapChainSize.width() / static_cast<float>(swapChainSize.height());
 
-void Camera::updateProjection() {
-    const QSize sz = m_window->swapChainImageSize();
-    float aspectRatio = sz.width() / static_cast<float>(sz.height());
-
-    m_proj.setToIdentity();
-    m_proj = m_window->clipCorrectionMatrix();
+    m_projectionMatrix.setToIdentity();
+    m_projectionMatrix = m_vulkanWindow->clipCorrectionMatrix();
     
-    m_proj.perspective(m_fov, aspectRatio, 0.01f, 100.0f);
+    m_projectionMatrix.perspective(m_fov, aspectRatio, 0.01f, 100.0f);
 
 
-    // m_proj.setToIdentity();
-    // m_proj = m_window->clipCorrectionMatrix();
+    // m_projectionMatrix.setToIdentity();
+    // m_projectionMatrix = m_vulkanWindow->clipCorrectionMatrix();
 
     // float orthoSize = 5.0f; // Controls how much of the scene is visible
     // float left   = -orthoSize * aspectRatio;
@@ -40,53 +29,57 @@ void Camera::updateProjection() {
     // float zNear  =  0.01f;
     // float zFar   =  100.0f;
 
-    // m_proj.ortho(left, right, bottom, top, zNear, zFar);
+    // m_projectionMatrix.ortho(left, right, bottom, top, zNear, zFar);
 }
 
-void Camera::onCameraViewUpdate(QPoint m_delta) // TODO: on middle click update origin
+void Camera::cameraViewUpdate(QPoint m_deltaCursorPosition) // TODO: on middle click update origin
 {
     static int correction = -1;
-    m_yaw += (m_delta.x() * correction) * m_sensitivity;
-    m_pitch += (m_delta.y() * -1) * m_sensitivity;
+    m_yaw += (m_deltaCursorPosition.x() * correction) * m_sensitivity;
+    m_pitch += (m_deltaCursorPosition.y() * -1) * m_sensitivity;
 
-    QQuaternion yawQuat = QQuaternion::fromAxisAndAngle(QVector3D(0, 1, 0), m_yaw);
-    QQuaternion pitchQuat = QQuaternion::fromAxisAndAngle(QVector3D(1, 0, 0), m_pitch);
+    QQuaternion yawQuaternion = QQuaternion::fromAxisAndAngle(QVector3D(0, 1, 0), m_yaw);
+    QQuaternion pitchQuaternion = QQuaternion::fromAxisAndAngle(QVector3D(1, 0, 0), m_pitch);
 
-    m_rotation = yawQuat * pitchQuat;
+    m_rotation = yawQuaternion * pitchQuaternion;
 
     QVector3D offset(0, 0, m_radius);
-    m_cameraPos = m_rotation.rotatedVector(offset);
+    m_cameraPosition = m_rotation.rotatedVector(offset);
 
     QVector3D cameraUp = m_rotation * QVector3D(0, 1, 0);
 
     m_updatedMatrix.setToIdentity();
-    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), cameraUp);
+    m_updatedMatrix.lookAt(m_cameraPosition, QVector3D(0, 0, 0), cameraUp);
 
     if(cameraUp.y() < 0)
+    {
         correction = 1;
+    }
     else
+    {
         correction = -1;
+    }
 }
 
-QMatrix4x4 Camera::getProj()
-{
-    return m_proj * m_updatedMatrix;
-}
-
-QVector3D Camera::getPos()
-{
-    return m_cameraPos;
-}
-
-void Camera::onCameraZoomUpdate(float m_zoom)
+void Camera::cameraZoomUpdate(float m_zoom)
 {
     m_radius *= m_zoom;
     
     QVector3D offset(0, 0, m_radius);
-    m_cameraPos = m_rotation.rotatedVector(offset);
+    m_cameraPosition = m_rotation.rotatedVector(offset);
 
     QVector3D cameraUp = m_rotation * QVector3D(0, 1, 0);
 
     m_updatedMatrix.setToIdentity();
-    m_updatedMatrix.lookAt(m_cameraPos, QVector3D(0, 0, 0), cameraUp);
+    m_updatedMatrix.lookAt(m_cameraPosition, QVector3D(0, 0, 0), cameraUp);
+}
+
+QMatrix4x4 Camera::getProjectionMatrix()
+{
+    return m_projectionMatrix * m_updatedMatrix;
+}
+
+QVector3D Camera::getPosition()
+{
+    return m_cameraPosition;
 }

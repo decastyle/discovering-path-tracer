@@ -28,16 +28,12 @@ public:
 
     void deviceCreated();
 
-    Camera *getCamera();
-    VulkanRayTracer *getVulkanRayTracer();
-    VulkanRenderer *getVulkanRenderer();
-
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
 
-signals:
-    void cameraViewUpdate(QPoint m_delta);
-    void cameraZoomUpdate(float m_zoom);
+    Camera *getCamera();
+    VulkanRayTracer *getVulkanRayTracer();
+    VulkanRenderer *getVulkanRenderer();
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -46,15 +42,13 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
-    VkQueue m_computeQueue;
-
     Camera *m_camera;
-    VulkanRayTracer *m_rayTracer;
-    VulkanRenderer *m_renderer;
+    VulkanRayTracer *m_vulkanRayTracer;
+    VulkanRenderer *m_vulkanRenderer;
 
-    QPoint m_delta{};
+    QPoint m_deltaCursorPosition{};
     float m_zoom{};
-    QPoint m_lastCursorPos{};
+    QPoint m_lastCursorPosition{};
 };
 
 #endif // VULKANWINDOW_H

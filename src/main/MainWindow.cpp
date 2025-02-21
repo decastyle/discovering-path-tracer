@@ -5,10 +5,10 @@
 #include "MainWindow.h"
 #include "VulkanWindow.h"
 
-MainWindow::MainWindow(VulkanWindow *w)
-    : m_window(w)
+MainWindow::MainWindow(VulkanWindow *vulkanWindow)
+    : m_vulkanWindow(vulkanWindow)
 {
-    QWidget *wrapper = QWidget::createWindowContainer(w);
+    QWidget *wrapper = QWidget::createWindowContainer(vulkanWindow);
 
     // m_info = new QPlainTextEdit;
     // m_info->setReadOnly(true);
@@ -19,7 +19,7 @@ MainWindow::MainWindow(VulkanWindow *w)
     // QPushButton *quitButton = new QPushButton(tr("&Quit")   );
     // quitButton->setFocusPolicy(Qt::NoFocus);
 
-    // connect(quitButton, &QPushButton::clicked, qApp, &QCoreApplication::quit);
+    // connect(quitButton, &QPushButton::clicked, qApp, &QCoreApplication::quit); // only valid use of connect lol
 
     QVBoxLayout *layout = new QVBoxLayout;
     // m_infoTab = new QTabWidget(this);

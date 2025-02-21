@@ -7,7 +7,7 @@ static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
-void VulkanRayTracer::onDeviceReady()
+void VulkanRayTracer::deviceReady()
 {
     static int initialized = 0;
 
@@ -22,10 +22,10 @@ void VulkanRayTracer::onDeviceReady()
 void VulkanRayTracer::initComputePipeline()
 {
     VkResult result{};
-    VkDevice dev = m_window->device();
-    m_devFuncs = m_window->vulkanInstance()->deviceFunctions(dev);
+    VkDevice dev = m_vulkanWindow->device();
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(dev);
 
-    uint32_t computeQueueFamilyIndex = m_window->findQueueFamilyIndex(m_window->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    uint32_t computeQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
@@ -54,26 +54,26 @@ void VulkanRayTracer::initComputePipeline()
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
-    result = m_devFuncs->vkCreateImage(dev, &imageInfo, nullptr, &m_storageImage);
+    result = m_deviceFunctions->vkCreateImage(dev, &imageInfo, nullptr, &m_storageImage);
     if (result != VK_SUCCESS)
         qDebug("Failed to create image: %d", result);
 
     VkMemoryRequirements storageImageMemoryRequirements;
-    m_devFuncs->vkGetImageMemoryRequirements(dev, m_storageImage, &storageImageMemoryRequirements);
+    m_deviceFunctions->vkGetImageMemoryRequirements(dev, m_storageImage, &storageImageMemoryRequirements);
     
     VkMemoryAllocateInfo allocInfo 
     {
         .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext           = nullptr,
         .allocationSize  = storageImageMemoryRequirements.size,
-        .memoryTypeIndex = m_window->deviceLocalMemoryIndex()
+        .memoryTypeIndex = m_vulkanWindow->deviceLocalMemoryIndex()
     };    
     
-    result = m_devFuncs->vkAllocateMemory(dev, &allocInfo, nullptr, &m_storageImageMemory);
+    result = m_deviceFunctions->vkAllocateMemory(dev, &allocInfo, nullptr, &m_storageImageMemory);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate image memory: %d", result);
     
-    m_devFuncs->vkBindImageMemory(dev, m_storageImage, m_storageImageMemory, 0);
+    m_deviceFunctions->vkBindImageMemory(dev, m_storageImage, m_storageImageMemory, 0);
 
     VkImageViewCreateInfo viewInfo 
     {
@@ -93,7 +93,7 @@ void VulkanRayTracer::initComputePipeline()
         }
     };    
 
-    result = m_devFuncs->vkCreateImageView(dev, &viewInfo, nullptr, &m_storageImageView);
+    result = m_deviceFunctions->vkCreateImageView(dev, &viewInfo, nullptr, &m_storageImageView);
     if (result != VK_SUCCESS)
         qDebug("Failed to create image view: %d", result);
 
@@ -119,7 +119,7 @@ void VulkanRayTracer::initComputePipeline()
         .pPoolSizes = descPoolSizes
     };
 
-    result = m_devFuncs->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descPool);
+    result = m_deviceFunctions->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descriptorPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create descriptor pool: %d", result);
 
@@ -143,7 +143,7 @@ void VulkanRayTracer::initComputePipeline()
         .pBindings = layoutBinding
     };
 
-    result = m_devFuncs->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descSetLayout);
+    result = m_deviceFunctions->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descriptorSetLayout);
     if (result != VK_SUCCESS)
         qDebug("Failed to create descriptor set layout: %d", result);
 
@@ -151,12 +151,12 @@ void VulkanRayTracer::initComputePipeline()
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = nullptr,
-        .descriptorPool = m_descPool,
+        .descriptorPool = m_descriptorPool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &m_descSetLayout
+        .pSetLayouts = &m_descriptorSetLayout
     };
 
-    result = m_devFuncs->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descSet);
+    result = m_deviceFunctions->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descriptorSet);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate descriptor set: %d", result);
     
@@ -171,7 +171,7 @@ void VulkanRayTracer::initComputePipeline()
     {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
-        .dstSet = m_descSet,
+        .dstSet = m_descriptorSet,
         .dstBinding = 0, // Binding 0 is for storage image
         .dstArrayElement = 0,
         .descriptorCount = 1,
@@ -183,7 +183,7 @@ void VulkanRayTracer::initComputePipeline()
 
     VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite };
     
-    m_devFuncs->vkUpdateDescriptorSets(dev, 1, descriptorWrites, 0, nullptr);
+    m_deviceFunctions->vkUpdateDescriptorSets(dev, 1, descriptorWrites, 0, nullptr);
 
     /////////////////////////////////////////////////////////////////////
     // Create command buffer
@@ -199,11 +199,11 @@ void VulkanRayTracer::initComputePipeline()
     
     VkCommandPool cmdPool;
 
-    result = m_devFuncs->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
+    result = m_deviceFunctions->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
     if (result != VK_SUCCESS)
         qDebug("Failed to create command pool: %d", result);
 
-    VkShaderModule rayTraceModule = m_window->createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
+    VkShaderModule rayTraceModule = m_vulkanWindow->createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo 
     {
@@ -222,12 +222,12 @@ void VulkanRayTracer::initComputePipeline()
         .pNext                  = nullptr,
         .flags                  = 0,
         .setLayoutCount         = 1,
-        .pSetLayouts            = &m_descSetLayout,  
+        .pSetLayouts            = &m_descriptorSetLayout,  
         .pushConstantRangeCount = 0,
         .pPushConstantRanges    = nullptr
     };
     
-    result = m_devFuncs->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
+    result = m_deviceFunctions->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
     if (result != VK_SUCCESS)
         qDebug("Failed to create pipeline layout: %d", result);
 
@@ -242,7 +242,7 @@ void VulkanRayTracer::initComputePipeline()
         .basePipelineIndex  = -1
     };
 
-    result = m_devFuncs->vkCreateComputePipelines(dev, m_pipelineCache, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
+    result = m_deviceFunctions->vkCreateComputePipelines(dev, m_pipelineCache, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
     if (result != VK_SUCCESS)
         qDebug("Failed to create compute pipeline: %d", result);
 
@@ -256,7 +256,7 @@ void VulkanRayTracer::initComputePipeline()
     };
 
     VkCommandBuffer cmdBuffer;
-    result = m_devFuncs->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
+    result = m_deviceFunctions->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
     if (result != VK_SUCCESS)
         qDebug("Failed to allocate command buffer: %d", result);
 
@@ -268,7 +268,7 @@ void VulkanRayTracer::initComputePipeline()
         .pInheritanceInfo = nullptr
     };
     
-    result = m_devFuncs->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+    result = m_deviceFunctions->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     if (result != VK_SUCCESS)
         qDebug("Failed to begin command buffer: %d", result);
 
@@ -292,7 +292,7 @@ void VulkanRayTracer::initComputePipeline()
         }
     };  
 
-    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    m_deviceFunctions->vkCmdPipelineBarrier(cmdBuffer,
     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
     0,
@@ -300,11 +300,11 @@ void VulkanRayTracer::initComputePipeline()
     0, nullptr, 
     1, &imageMemoryBarrierToGeneral);   
 
-    m_devFuncs->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+    m_deviceFunctions->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
 
-    m_devFuncs->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descSet, 0, nullptr);
+    m_deviceFunctions->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-    m_devFuncs->vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+    m_deviceFunctions->vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
                 (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
     VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
@@ -327,7 +327,7 @@ void VulkanRayTracer::initComputePipeline()
         }
     };  
 
-    m_devFuncs->vkCmdPipelineBarrier(cmdBuffer,
+    m_deviceFunctions->vkCmdPipelineBarrier(cmdBuffer,
     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
     VK_PIPELINE_STAGE_TRANSFER_BIT,
     0,
@@ -335,7 +335,7 @@ void VulkanRayTracer::initComputePipeline()
     0, nullptr, 
     1, &imageMemoryBarrierToTransferSrc);   
 
-    result = m_devFuncs->vkEndCommandBuffer(cmdBuffer);
+    result = m_deviceFunctions->vkEndCommandBuffer(cmdBuffer);
     if (result != VK_SUCCESS)
         qDebug("Failed to end command buffer: %d", result);
 
@@ -352,17 +352,17 @@ void VulkanRayTracer::initComputePipeline()
         .pSignalSemaphores    = nullptr
     };    
 
-    result = m_devFuncs->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    result = m_deviceFunctions->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (result != VK_SUCCESS)
         qDebug("Failed to submit command buffer to compute queue: %d", result);
 
-    result = m_devFuncs->vkQueueWaitIdle(m_computeQueue);
+    result = m_deviceFunctions->vkQueueWaitIdle(m_computeQueue);
     if (result != VK_SUCCESS)
         qDebug("Failed to wait for compute queue: %d", result);
 }
 
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
-    : m_window(w)
+    : m_vulkanWindow(w)
 {
     
 }

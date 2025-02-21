@@ -1,5 +1,4 @@
-#ifndef VULKANRAYTRACER_H
-#define VULKANRAYTRACER_H
+#pragma once
 
 #include <vulkan/vulkan.h>
 #include <QObject>
@@ -43,5 +42,3 @@ private:
 
     VkQueue m_computeQueue = VK_NULL_HANDLE;
 };
-
-#endif // VULKANRAYTRACER_H

@@ -1,5 +1,4 @@
-#ifndef VULKANWINDOW_H
-#define VULKANWINDOW_H
+#pragma once
 
 #include <QObject>
 #include <QVulkanWindow>
@@ -47,5 +46,3 @@ private:
     float m_zoom{};
     QPoint m_lastCursorPosition{};
 };
-
-#endif // VULKANWINDOW_H

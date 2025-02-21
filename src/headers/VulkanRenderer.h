@@ -1,5 +1,4 @@
-#ifndef VULKANRENDERER_H
-#define VULKANRENDERER_H
+#pragma once
 
 #include <QObject>
 #include <QVulkanWindow>
@@ -53,5 +52,3 @@ protected:
 
     QElapsedTimer m_renderTimer;
 };
-
-#endif // VULKANRENDERER_H

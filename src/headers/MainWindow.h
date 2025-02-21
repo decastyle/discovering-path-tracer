@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QWidget>
 #include <QTabWidget>
@@ -21,7 +20,5 @@ private:
     // QPlainTextEdit *m_info;
     // QLCDNumber *m_number;
 };
-
-#endif // MAINWINDOW_H
 
 // TODO: Make GUI look good

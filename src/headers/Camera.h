@@ -1,5 +1,4 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#pragma once
 
 #include <QObject>
 #include <QVector3D>
@@ -36,5 +35,3 @@ private:
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
 };
-
-#endif // CAMERA_H

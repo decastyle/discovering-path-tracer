@@ -10,7 +10,7 @@
 #include <vulkan/vulkan.h>
 
 #include "Camera.h"
-#include "VulkanRenderer.h"
+
 #include "VulkanRayTracer.h"
 
 class Camera;
@@ -24,7 +24,7 @@ public:
     
     QVulkanWindowRenderer *createRenderer() override;
 
-    void deviceCreated();
+    // void deviceCreated();
 
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
@@ -44,7 +44,7 @@ private:
     float m_zoom{};
     QPoint m_lastCursorPosition{};
 
-    Camera *m_camera;
-    VulkanRayTracer *m_vulkanRayTracer;
-    VulkanRenderer *m_vulkanRenderer;
+    Camera *m_camera = nullptr;
+    VulkanRayTracer *m_vulkanRayTracer = nullptr;
+    VulkanRenderer *m_vulkanRenderer = nullptr;
 };

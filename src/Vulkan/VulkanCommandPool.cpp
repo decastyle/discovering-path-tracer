@@ -1,6 +1,6 @@
 #include "VulkanCommandPool.h"
 
-VulkanCommandPool::VulkanCommandPool(QVulkanWindow* vulkanWindow, uint32_t queueFamilyIndex)
+VulkanCommandPool::VulkanCommandPool(VulkanWindow* vulkanWindow, uint32_t queueFamilyIndex)
     : m_vulkanWindow(vulkanWindow), 
       m_queueFamilyIndex(queueFamilyIndex)
 {
@@ -15,6 +15,30 @@ VulkanCommandPool::~VulkanCommandPool()
     cleanup();
 }
 
+void VulkanCommandPool::swap(VulkanCommandPool& other) noexcept
+{
+    std::swap(m_vulkanWindow, other.m_vulkanWindow);
+    std::swap(m_queueFamilyIndex, other.m_queueFamilyIndex);
+    
+    // Vulkan resources
+    std::swap(m_commandPool, other.m_commandPool);
+    
+    // Device resources
+    std::swap(m_device, other.m_device);
+    std::swap(m_result, other.m_result);
+    std::swap(m_deviceFunctions, other.m_deviceFunctions);
+}
+
+VulkanCommandPool& VulkanCommandPool::operator=(VulkanCommandPool&& other) noexcept 
+{
+    if (this != &other) 
+    {
+        cleanup();
+        swap(other);
+    }
+    return *this;
+}
+
 void VulkanCommandPool::createCommandPool()
 {
     VkCommandPoolCreateInfo commandPoolCreateInfo 
@@ -24,10 +48,8 @@ void VulkanCommandPool::createCommandPool()
         .flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
         .queueFamilyIndex = m_queueFamilyIndex
     };
-    
-    VkCommandPool commandPool;
 
-    m_result = m_deviceFunctions->vkCreateCommandPool(m_device, &commandPoolCreateInfo, nullptr, &commandPool);
+    m_result = m_deviceFunctions->vkCreateCommandPool(m_device, &commandPoolCreateInfo, nullptr, &m_commandPool);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to create command pool (error code: %d)", m_result);

@@ -4,20 +4,25 @@
 #include <QVulkanFunctions>
 #include "VulkanWindow.h"
 
+class VulkanWindow;
+
 class VulkanCommandBuffer
 {
 public:
-    VulkanCommandBuffer(QVulkanWindow* vulkanWindow, VkCommandPool commandPool, VkQueue queue);
+    VulkanCommandBuffer() = default; 
+    VulkanCommandBuffer(VulkanWindow* vulkanWindow, VkCommandPool commandPool, VkQueue queue);
     ~VulkanCommandBuffer();
 
     void beginSingleTimeCommandBuffer();
     void endSubmitAndWait();
 
+    VkCommandBuffer getCommandBuffer() const { return m_commandBuffer; }
+
 private:
     void createCommandBuffer();
     void cleanup();
 
-    QVulkanWindow* m_vulkanWindow = nullptr;
+    VulkanWindow* m_vulkanWindow = nullptr;
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
     VkQueue m_queue = VK_NULL_HANDLE;
 

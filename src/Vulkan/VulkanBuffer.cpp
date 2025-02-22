@@ -18,6 +18,33 @@ VulkanBuffer::~VulkanBuffer()
     cleanup();
 }
 
+void VulkanBuffer::swap(VulkanBuffer& other) noexcept
+{
+    std::swap(m_vulkanWindow, other.m_vulkanWindow);
+    std::swap(m_size, other.m_size);
+    std::swap(m_usage, other.m_usage);
+    std::swap(m_memoryTypeIndex, other.m_memoryTypeIndex);
+    
+    // Vulkan resources
+    std::swap(m_buffer, other.m_buffer);
+    std::swap(m_memory, other.m_memory);
+    
+    // Device resources
+    std::swap(m_device, other.m_device);
+    std::swap(m_result, other.m_result);
+    std::swap(m_deviceFunctions, other.m_deviceFunctions);
+}
+
+VulkanBuffer& VulkanBuffer::operator=(VulkanBuffer&& other) noexcept 
+{
+    if (this != &other) 
+    {
+        cleanup();
+        swap(other);
+    }
+    return *this;
+}
+
 void VulkanBuffer::createBuffer()
 {
     VkBufferCreateInfo bufferCreateInfo = {

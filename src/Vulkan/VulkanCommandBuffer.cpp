@@ -1,6 +1,6 @@
 #include "VulkanCommandBuffer.h"
 
-VulkanCommandBuffer::VulkanCommandBuffer(QVulkanWindow* vulkanWindow, VkCommandPool commandPool, VkQueue queue)
+VulkanCommandBuffer::VulkanCommandBuffer(VulkanWindow* vulkanWindow, VkCommandPool commandPool, VkQueue queue)
     : m_vulkanWindow(vulkanWindow), 
       m_commandPool(commandPool), 
       m_queue(queue)

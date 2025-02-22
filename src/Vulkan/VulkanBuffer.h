@@ -6,16 +6,19 @@
 #include <QVulkanFunctions>
 #include "VulkanWindow.h"
 
-class VulkanWindow;
+class VulkanWindow; 
 
 class VulkanBuffer 
 {
 public:
+    VulkanBuffer() = default; 
     VulkanBuffer(VulkanWindow* vulkanWindow, VkDeviceSize size, VkBufferUsageFlags usage, uint32_t memoryTypeIndex);
     ~VulkanBuffer();
 
     VulkanBuffer(const VulkanBuffer&) = delete;
     VulkanBuffer& operator=(const VulkanBuffer&) = delete;
+
+    VulkanBuffer& operator=(VulkanBuffer&& other) noexcept;
 
     VkBuffer getBuffer() const { return m_buffer; }
     
@@ -25,6 +28,8 @@ private:
     void createBuffer();
     void allocateMemory();
     void cleanup();
+
+    void swap(VulkanBuffer& other) noexcept;
 
     VulkanWindow *m_vulkanWindow = nullptr;
     VkDeviceSize m_size{};

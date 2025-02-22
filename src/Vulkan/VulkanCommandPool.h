@@ -4,17 +4,26 @@
 #include <QVulkanFunctions>
 #include "VulkanWindow.h"
 
+class VulkanWindow;
+
 class VulkanCommandPool
 {
 public:
-    VulkanCommandPool(QVulkanWindow* vulkanWindow, uint32_t queueFamilyIndex);
+    VulkanCommandPool() = default; 
+    VulkanCommandPool(VulkanWindow* vulkanWindow, uint32_t queueFamilyIndex);
     ~VulkanCommandPool();
+
+    VulkanCommandPool& operator=(VulkanCommandPool&& other) noexcept;
+
+    VkCommandPool getCommandPool() const { return m_commandPool; }
 
 private:
     void createCommandPool();
     void cleanup();
 
-    QVulkanWindow* m_vulkanWindow = nullptr;
+    void swap(VulkanCommandPool& other) noexcept;
+
+    VulkanWindow* m_vulkanWindow = nullptr;
     uint32_t m_queueFamilyIndex{};
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;

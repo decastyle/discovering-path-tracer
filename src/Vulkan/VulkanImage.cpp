@@ -1,6 +1,6 @@
 #include "VulkanImage.h"
 
-VulkanImage::VulkanImage(QVulkanWindow* vulkanWindow, uint32_t width, uint32_t height, VkBufferUsageFlags usage, uint32_t memoryTypeIndex)
+VulkanImage::VulkanImage(VulkanWindow* vulkanWindow, uint32_t width, uint32_t height, VkBufferUsageFlags usage, uint32_t memoryTypeIndex)
     : m_vulkanWindow(vulkanWindow), 
       m_width(width), 
       m_height(height), 
@@ -14,6 +14,36 @@ VulkanImage::VulkanImage(QVulkanWindow* vulkanWindow, uint32_t width, uint32_t h
     allocateMemory();
     createImageView();
     createSampler();
+}
+
+void VulkanImage::swap(VulkanImage& other) noexcept
+{
+    std::swap(m_vulkanWindow, other.m_vulkanWindow);
+    std::swap(m_width, other.m_width);
+    std::swap(m_height, other.m_height);
+    std::swap(m_usage, other.m_usage);
+    std::swap(m_memoryTypeIndex, other.m_memoryTypeIndex);
+    
+    // Vulkan resources
+    std::swap(m_image, other.m_image);
+    std::swap(m_memory, other.m_memory);
+    std::swap(m_imageView, other.m_imageView);
+    std::swap(m_sampler, other.m_sampler);
+    
+    // Device resources
+    std::swap(m_device, other.m_device);
+    std::swap(m_result, other.m_result);
+    std::swap(m_deviceFunctions, other.m_deviceFunctions);
+}
+
+VulkanImage& VulkanImage::operator=(VulkanImage&& other) noexcept 
+{
+    if (this != &other) 
+    {
+        cleanup();
+        swap(other);
+    }
+    return *this;
 }
 
 VulkanImage::~VulkanImage()

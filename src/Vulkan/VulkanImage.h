@@ -5,14 +5,19 @@
 #include <QVulkanFunctions>
 #include "VulkanWindow.h"
 
+// class VulkanWindow;
+
 class VulkanImage
 {
 public:
-    VulkanImage(QVulkanWindow* vulkanWindow, uint32_t width, uint32_t height, VkBufferUsageFlags usage, uint32_t memoryTypeIndex);
+    VulkanImage() = default; 
+    VulkanImage(VulkanWindow* vulkanWindow, uint32_t width, uint32_t height, VkBufferUsageFlags usage, uint32_t memoryTypeIndex);
     ~VulkanImage();
 
     VulkanImage(const VulkanImage&) = delete;
     VulkanImage& operator=(const VulkanImage&) = delete;
+
+    VulkanImage& operator=(VulkanImage&& other) noexcept;
 
     VkImage getImage() const { return m_image; }
     VkImageView getImageView() const { return m_imageView; }
@@ -25,7 +30,9 @@ private:
     void createSampler();
     void cleanup();
 
-    QVulkanWindow* m_vulkanWindow = nullptr;
+    void swap(VulkanImage& other) noexcept;
+
+    VulkanWindow* m_vulkanWindow = nullptr;
     uint32_t m_width{};
     uint32_t m_height{};
     VkBufferUsageFlags m_usage{};

@@ -7,8 +7,7 @@ VulkanImage::VulkanImage(VulkanWindow* vulkanWindow, uint32_t width, uint32_t he
       m_usage(usage), 
       m_memoryTypeIndex(memoryTypeIndex)
 {
-    m_device = m_vulkanWindow->device();
-    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_vulkanWindow->device());
 
     createImage();
     allocateMemory();
@@ -31,7 +30,6 @@ void VulkanImage::swap(VulkanImage& other) noexcept
     std::swap(m_sampler, other.m_sampler);
     
     // Device resources
-    std::swap(m_device, other.m_device);
     std::swap(m_result, other.m_result);
     std::swap(m_deviceFunctions, other.m_deviceFunctions);
 }
@@ -72,7 +70,7 @@ void VulkanImage::createImage()
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
-    m_result = m_deviceFunctions->vkCreateImage(m_device, &imageCreateInfo, nullptr, &m_image);
+    m_result = m_deviceFunctions->vkCreateImage(m_vulkanWindow->device(), &imageCreateInfo, nullptr, &m_image);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to create image (error code: %d)", m_result);
@@ -83,7 +81,7 @@ void VulkanImage::createImage()
 void VulkanImage::allocateMemory()
 {
     VkMemoryRequirements memoryRequirements;
-    m_deviceFunctions->vkGetImageMemoryRequirements(m_device, m_image, &memoryRequirements);
+    m_deviceFunctions->vkGetImageMemoryRequirements(m_vulkanWindow->device(), m_image, &memoryRequirements);
     
     VkMemoryAllocateInfo memoryAllocateInfo
     {
@@ -93,14 +91,14 @@ void VulkanImage::allocateMemory()
         .memoryTypeIndex = m_memoryTypeIndex
     };
 
-    m_result = m_deviceFunctions->vkAllocateMemory(m_device, &memoryAllocateInfo, nullptr, &m_memory);
+    m_result = m_deviceFunctions->vkAllocateMemory(m_vulkanWindow->device(), &memoryAllocateInfo, nullptr, &m_memory);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to allocate image memory (error code: %d)", m_result);
         return;
     }
 
-    m_deviceFunctions->vkBindImageMemory(m_device, m_image, m_memory, 0);
+    m_deviceFunctions->vkBindImageMemory(m_vulkanWindow->device(), m_image, m_memory, 0);
 }
 
 void VulkanImage::createImageView()
@@ -123,7 +121,7 @@ void VulkanImage::createImageView()
         }
     };    
 
-    m_result = m_deviceFunctions->vkCreateImageView(m_device, &imageViewCreateInfo, nullptr, &m_imageView);
+    m_result = m_deviceFunctions->vkCreateImageView(m_vulkanWindow->device(), &imageViewCreateInfo, nullptr, &m_imageView);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to create image view (error code: %d)", m_result);
@@ -155,7 +153,7 @@ void VulkanImage::createSampler()
         .unnormalizedCoordinates = VK_FALSE,
     };
 
-    m_result = m_deviceFunctions->vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_sampler);
+    m_result = m_deviceFunctions->vkCreateSampler(m_vulkanWindow->device(), &samplerCreateInfo, nullptr, &m_sampler);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to create sampler (error code: %d)", m_result);
@@ -167,22 +165,22 @@ void VulkanImage::cleanup()
 {
     if (m_sampler)
     {
-        m_deviceFunctions->vkDestroySampler(m_device, m_sampler, nullptr);
+        m_deviceFunctions->vkDestroySampler(m_vulkanWindow->device(), m_sampler, nullptr);
         m_sampler = VK_NULL_HANDLE;
     }
     if (m_imageView) 
     {
-        m_deviceFunctions->vkDestroyImageView(m_device, m_imageView, nullptr);
+        m_deviceFunctions->vkDestroyImageView(m_vulkanWindow->device(), m_imageView, nullptr);
         m_imageView = VK_NULL_HANDLE;
     }
     if (m_memory) 
     {
-        m_deviceFunctions->vkFreeMemory(m_device, m_memory, nullptr);
+        m_deviceFunctions->vkFreeMemory(m_vulkanWindow->device(), m_memory, nullptr);
         m_memory = VK_NULL_HANDLE;
     }
     if (m_image) 
     {
-        m_deviceFunctions->vkDestroyImage(m_device, m_image, nullptr);
+        m_deviceFunctions->vkDestroyImage(m_vulkanWindow->device(), m_image, nullptr);
         m_image = VK_NULL_HANDLE;
     }
 }

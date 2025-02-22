@@ -6,8 +6,7 @@ VulkanBuffer::VulkanBuffer(VulkanWindow* vulkanWindow, VkDeviceSize size, VkBuff
       m_usage(usage), 
       m_memoryTypeIndex(memoryTypeIndex)
 {
-    m_device = m_vulkanWindow->device();
-    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_vulkanWindow->device());
 
     createBuffer();
     allocateMemory();
@@ -30,7 +29,6 @@ void VulkanBuffer::swap(VulkanBuffer& other) noexcept
     std::swap(m_memory, other.m_memory);
     
     // Device resources
-    std::swap(m_device, other.m_device);
     std::swap(m_result, other.m_result);
     std::swap(m_deviceFunctions, other.m_deviceFunctions);
 }
@@ -58,7 +56,7 @@ void VulkanBuffer::createBuffer()
         .pQueueFamilyIndices = nullptr
     };
 
-    m_result = m_deviceFunctions->vkCreateBuffer(m_device, &bufferCreateInfo, nullptr, &m_buffer);
+    m_result = m_deviceFunctions->vkCreateBuffer(m_vulkanWindow->device(), &bufferCreateInfo, nullptr, &m_buffer);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to create buffer (error code: %d)", m_result);
@@ -69,7 +67,7 @@ void VulkanBuffer::createBuffer()
 void VulkanBuffer::allocateMemory()
 {
     VkMemoryRequirements memoryRequirements;
-    m_deviceFunctions->vkGetBufferMemoryRequirements(m_device, m_buffer, &memoryRequirements);
+    m_deviceFunctions->vkGetBufferMemoryRequirements(m_vulkanWindow->device(), m_buffer, &memoryRequirements);
 
     VkMemoryAllocateInfo memoryAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -78,14 +76,14 @@ void VulkanBuffer::allocateMemory()
         .memoryTypeIndex = m_memoryTypeIndex
     };
 
-    m_result = m_deviceFunctions->vkAllocateMemory(m_device, &memoryAllocateInfo, nullptr, &m_memory);
+    m_result = m_deviceFunctions->vkAllocateMemory(m_vulkanWindow->device(), &memoryAllocateInfo, nullptr, &m_memory);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to allocate memory (error code: %d)", m_result);
         return;
     }
 
-    m_result = m_deviceFunctions->vkBindBufferMemory(m_device, m_buffer, m_memory, 0);
+    m_result = m_deviceFunctions->vkBindBufferMemory(m_vulkanWindow->device(), m_buffer, m_memory, 0);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to bind buffer memory (error code: %d)", m_result);
@@ -97,12 +95,12 @@ void VulkanBuffer::cleanup()
 {
     if (m_memory) 
     {
-        vkFreeMemory(m_device, m_memory, nullptr);
+        vkFreeMemory(m_vulkanWindow->device(), m_memory, nullptr);
         m_memory = VK_NULL_HANDLE;
     }
     if (m_buffer) 
     {
-        vkDestroyBuffer(m_device, m_buffer, nullptr);
+        vkDestroyBuffer(m_vulkanWindow->device(), m_buffer, nullptr);
         m_buffer = VK_NULL_HANDLE;
     }
 }
@@ -120,7 +118,7 @@ void VulkanBuffer::copyData(const void* data, VkDeviceSize size, VkDeviceSize of
     }
     
     void* mappedData = nullptr;
-    m_result = m_deviceFunctions->vkMapMemory(m_device, m_memory, offset, size, 0, &mappedData);
+    m_result = m_deviceFunctions->vkMapMemory(m_vulkanWindow->device(), m_memory, offset, size, 0, &mappedData);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to map memory (error code: %d)", m_result);
@@ -137,8 +135,8 @@ void VulkanBuffer::copyData(const void* data, VkDeviceSize size, VkDeviceSize of
         range.memory = m_memory;
         range.offset = offset;
         range.size = size;
-        vkFlushMappedMemoryRanges(m_device, 1, &range);
+        vkFlushMappedMemoryRanges(m_vulkanWindow->device(), 1, &range);
     }
 
-    m_deviceFunctions->vkUnmapMemory(m_device, m_memory);
+    m_deviceFunctions->vkUnmapMemory(m_vulkanWindow->device(), m_memory);
 }

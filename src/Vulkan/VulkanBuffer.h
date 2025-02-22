@@ -24,6 +24,8 @@ public:
     
     void copyData(const void* data, VkDeviceSize size, VkDeviceSize offset = 0);
 
+    void destroy() { cleanup(); }
+
 private:
     void createBuffer();
     void allocateMemory();
@@ -39,7 +41,6 @@ private:
     VkBuffer m_buffer = VK_NULL_HANDLE;
     VkDeviceMemory m_memory = VK_NULL_HANDLE;
     
-    VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;
 };

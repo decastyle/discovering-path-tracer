@@ -105,6 +105,7 @@ VulkanRenderer::VulkanRenderer(VulkanWindow *vulkanWindow)
 void VulkanRenderer::initResources()
 {
     m_device = m_vulkanWindow->device();
+    qDebug() << m_device;
     m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
     m_vulkanWindow->getVulkanRayTracer()->deviceReady();
 
@@ -1085,6 +1086,12 @@ void VulkanRenderer::releaseResources()
         m_deviceFunctions->vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
         m_descriptorPool = VK_NULL_HANDLE;
     }
+
+    m_graphicsCommandPool.destroy();
+    m_vertexBuffer.destroy();
+    m_vertexStagingBuffer.destroy();
+    m_uniformBuffer.destroy();
+    m_renderImage.destroy();
 
     // if (m_vertexBuffer) {
     //     m_deviceFunctions->vkDestroyBuffer(device, m_vertexBuffer, nullptr);

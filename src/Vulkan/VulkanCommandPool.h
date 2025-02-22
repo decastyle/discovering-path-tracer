@@ -17,6 +17,8 @@ public:
 
     VkCommandPool getCommandPool() const { return m_commandPool; }
 
+    void destroy() { cleanup(); }
+
 private:
     void createCommandPool();
     void cleanup();
@@ -28,7 +30,6 @@ private:
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
     
-    VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;
 };

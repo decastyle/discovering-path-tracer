@@ -4,8 +4,7 @@ VulkanCommandPool::VulkanCommandPool(VulkanWindow* vulkanWindow, uint32_t queueF
     : m_vulkanWindow(vulkanWindow), 
       m_queueFamilyIndex(queueFamilyIndex)
 {
-    m_device = m_vulkanWindow->device();
-    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_vulkanWindow->device());
 
     createCommandPool();
 }
@@ -24,7 +23,6 @@ void VulkanCommandPool::swap(VulkanCommandPool& other) noexcept
     std::swap(m_commandPool, other.m_commandPool);
     
     // Device resources
-    std::swap(m_device, other.m_device);
     std::swap(m_result, other.m_result);
     std::swap(m_deviceFunctions, other.m_deviceFunctions);
 }
@@ -49,7 +47,7 @@ void VulkanCommandPool::createCommandPool()
         .queueFamilyIndex = m_queueFamilyIndex
     };
 
-    m_result = m_deviceFunctions->vkCreateCommandPool(m_device, &commandPoolCreateInfo, nullptr, &m_commandPool);
+    m_result = m_deviceFunctions->vkCreateCommandPool(m_vulkanWindow->device(), &commandPoolCreateInfo, nullptr, &m_commandPool);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to create command pool (error code: %d)", m_result);
@@ -61,7 +59,7 @@ void VulkanCommandPool::cleanup()
 {
     if (m_commandPool)
     {
-        m_deviceFunctions->vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+        m_deviceFunctions->vkDestroyCommandPool(m_vulkanWindow->device(), m_commandPool, nullptr);
         m_commandPool = VK_NULL_HANDLE;
     }
 }

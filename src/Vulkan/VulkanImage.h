@@ -23,6 +23,8 @@ public:
     VkImageView getImageView() const { return m_imageView; }
     VkSampler getSampler() const { return m_sampler; }
 
+    void destroy() { cleanup(); }
+
 private:
     void createImage();
     void allocateMemory();
@@ -43,7 +45,6 @@ private:
     VkImageView m_imageView = VK_NULL_HANDLE;
     VkSampler m_sampler = VK_NULL_HANDLE;
     
-    VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;
 };

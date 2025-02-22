@@ -5,8 +5,7 @@ VulkanCommandBuffer::VulkanCommandBuffer(VulkanWindow* vulkanWindow, VkCommandPo
       m_commandPool(commandPool), 
       m_queue(queue)
 {
-    m_device = m_vulkanWindow->device();
-    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_vulkanWindow->device());
 
     createCommandBuffer();
 }
@@ -27,7 +26,7 @@ void VulkanCommandBuffer::createCommandBuffer()
         .commandBufferCount = 1
     };
 
-    m_result = m_deviceFunctions->vkAllocateCommandBuffers(m_device, &commandBufferAllocateInfo, &m_commandBuffer);
+    m_result = m_deviceFunctions->vkAllocateCommandBuffers(m_vulkanWindow->device(), &commandBufferAllocateInfo, &m_commandBuffer);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to allocate command buffer (error code: %d)", m_result);
@@ -39,7 +38,7 @@ void VulkanCommandBuffer::cleanup()
 {
     if (m_commandBuffer)
     {
-        m_deviceFunctions->vkFreeCommandBuffers(m_device, m_commandPool, 1, &m_commandBuffer);
+        m_deviceFunctions->vkFreeCommandBuffers(m_vulkanWindow->device(), m_commandPool, 1, &m_commandBuffer);
         m_commandBuffer = VK_NULL_HANDLE;
     }
 }

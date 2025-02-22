@@ -18,6 +18,8 @@ public:
 
     VkCommandBuffer getCommandBuffer() const { return m_commandBuffer; }
 
+    void destroy() { cleanup(); }
+
 private:
     void createCommandBuffer();
     void cleanup();
@@ -29,7 +31,6 @@ private:
     VkCommandBuffer m_commandBuffer = VK_NULL_HANDLE;
     bool m_isRecording = false;
     
-    VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;
 };

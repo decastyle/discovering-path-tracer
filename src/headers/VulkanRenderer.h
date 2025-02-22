@@ -26,7 +26,6 @@ public:
 
 protected:
     VulkanWindow *m_vulkanWindow;
-    QVulkanDeviceFunctions *m_deviceFunctions;
 
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
@@ -56,4 +55,6 @@ protected:
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
 
     QElapsedTimer m_renderTimer;
+
+    QVulkanDeviceFunctions *m_deviceFunctions;
 };

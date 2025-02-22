@@ -142,11 +142,11 @@ void VulkanRenderer::initResources()
                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
                         m_vulkanWindow->hostVisibleMemoryIndex());
                         
-    QMatrix4x4 identityMatrix;
+    QMatrix4x4 identityMatrixTemp;
     for (int i = 0; i < concurrentFrameCount; ++i) 
     {
         const VkDeviceSize offset = i * uniformBufferDeviceSize;
-        uniformBuffer.copyData(identityMatrix.constData(), 16 * sizeof(float), offset);
+        uniformBuffer.copyData(identityMatrixTemp.constData(), 16 * sizeof(float), offset);
 
         m_uniformBufferInfo[i] = VkDescriptorBufferInfo{
             .buffer = uniformBuffer.getBuffer(),
@@ -1039,7 +1039,7 @@ void VulkanRenderer::initSwapChainResources()
 {
     qDebug("initSwapChainResources");
 
-    m_vulkanWindow->getCamera()->swapChainUpdate();
+    m_vulkanWindow->getCamera()->cameraSwapChainUpdate();
 }
 
 void VulkanRenderer::releaseSwapChainResources()

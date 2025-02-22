@@ -301,18 +301,3 @@ void VulkanWindow::mouseReleaseEvent(QMouseEvent *event)
         QWindow::setCursor(Qt::OpenHandCursor);
     }
 }
-
-Camera *VulkanWindow::getCamera()
-{
-    return m_camera;
-}
-
-VulkanRayTracer *VulkanWindow::getVulkanRayTracer()
-{
-    return m_vulkanRayTracer;
-}
-
-VulkanRenderer *VulkanWindow::getVulkanRenderer()
-{
-    return m_vulkanRenderer;
-}

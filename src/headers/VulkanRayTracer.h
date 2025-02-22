@@ -12,7 +12,6 @@
 
 #include "VulkanWindow.h"
 
-
 class VulkanWindow;
 
 class VulkanRayTracer 
@@ -21,13 +20,13 @@ public:
     VulkanRayTracer(VulkanWindow *w);
 
     VkImage getStorageImage();
+
     void deviceReady();
 
 private:
-    VulkanWindow *m_vulkanWindow;
-    QVulkanDeviceFunctions *m_deviceFunctions;
+    void initComputePipeline();  
 
-    void initComputePipeline();    
+    VulkanWindow *m_vulkanWindow;
     
     VkImage m_storageImage = VK_NULL_HANDLE;
     VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
@@ -42,4 +41,6 @@ private:
     VkPipeline m_computePipeline = VK_NULL_HANDLE;
 
     VkQueue m_computeQueue = VK_NULL_HANDLE;
+
+    QVulkanDeviceFunctions *m_deviceFunctions;
 };

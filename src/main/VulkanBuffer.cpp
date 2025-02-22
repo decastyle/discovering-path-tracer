@@ -1,7 +1,10 @@
 #include "VulkanBuffer.h"
 
 VulkanBuffer::VulkanBuffer(VulkanWindow* vulkanWindow, VkDeviceSize size, VkBufferUsageFlags usage, uint32_t memoryTypeIndex) 
-    : m_vulkanWindow(vulkanWindow), m_size(size), m_usage(usage), m_memoryTypeIndex(memoryTypeIndex)
+    : m_vulkanWindow(vulkanWindow), 
+      m_size(size), 
+      m_usage(usage), 
+      m_memoryTypeIndex(memoryTypeIndex)
 {
     m_device = m_vulkanWindow->device();
     m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
@@ -75,7 +78,7 @@ void VulkanBuffer::cleanup()
     }
 }
 
-void VulkanBuffer::copyData(const void* data, VkDeviceSize size, VkDeviceSize offset = 0)
+void VulkanBuffer::copyData(const void* data, VkDeviceSize size, VkDeviceSize offset)
 {
     VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
     vkGetPhysicalDeviceMemoryProperties(m_vulkanWindow->physicalDevice(), &physicalDeviceMemoryProperties);

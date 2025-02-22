@@ -1,7 +1,11 @@
 #include "VulkanImage.h"
 
 VulkanImage::VulkanImage(QVulkanWindow* vulkanWindow, uint32_t width, uint32_t height, VkBufferUsageFlags usage, uint32_t memoryTypeIndex)
-    : m_vulkanWindow(vulkanWindow), m_width(width), m_height(height), m_usage(usage), m_memoryTypeIndex(memoryTypeIndex)
+    : m_vulkanWindow(vulkanWindow), 
+      m_width(width), 
+      m_height(height), 
+      m_usage(usage), 
+      m_memoryTypeIndex(memoryTypeIndex)
 {
     m_device = m_vulkanWindow->device();
     m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);

@@ -16,7 +16,7 @@ public:
     QMatrix4x4 getProjectionMatrix();
     QVector3D getPosition();
 
-    void swapChainUpdate();
+    void cameraSwapChainUpdate();
     void cameraViewUpdate(QPoint m_deltaCursorPosition);
     void cameraZoomUpdate(float m_zoom);
 

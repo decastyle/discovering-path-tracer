@@ -25,16 +25,17 @@ private:
     void createSampler();
     void cleanup();
 
-    VkImage m_image = VK_NULL_HANDLE;
-    VkDeviceMemory m_memory = VK_NULL_HANDLE;
-    VkImageView m_imageView = VK_NULL_HANDLE;
-    VkSampler m_sampler = VK_NULL_HANDLE;
+    QVulkanWindow* m_vulkanWindow = nullptr;
     uint32_t m_width{};
     uint32_t m_height{};
     VkBufferUsageFlags m_usage{};
     uint32_t m_memoryTypeIndex{};
 
-    QVulkanWindow* m_vulkanWindow = nullptr;
+    VkImage m_image = VK_NULL_HANDLE;
+    VkDeviceMemory m_memory = VK_NULL_HANDLE;
+    VkImageView m_imageView = VK_NULL_HANDLE;
+    VkSampler m_sampler = VK_NULL_HANDLE;
+    
     VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;

@@ -29,9 +29,9 @@ public:
     uint32_t findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits bit);
     VkShaderModule createShaderModule(const QString &filename);
 
-    Camera *getCamera();
-    VulkanRayTracer *getVulkanRayTracer();
-    VulkanRenderer *getVulkanRenderer();
+    Camera* getCamera() { return m_camera; }
+    VulkanRayTracer* getVulkanRayTracer() { return m_vulkanRayTracer; }
+    VulkanRenderer* getVulkanRenderer() { return m_vulkanRenderer; }
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -40,11 +40,11 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
-    Camera *m_camera;
-    VulkanRayTracer *m_vulkanRayTracer;
-    VulkanRenderer *m_vulkanRenderer;
-
     QPoint m_deltaCursorPosition{};
     float m_zoom{};
     QPoint m_lastCursorPosition{};
+
+    Camera *m_camera;
+    VulkanRayTracer *m_vulkanRayTracer;
+    VulkanRenderer *m_vulkanRenderer;
 };

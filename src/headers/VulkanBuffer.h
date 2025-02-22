@@ -6,6 +6,8 @@
 #include <QVulkanFunctions>
 #include "VulkanWindow.h"
 
+class VulkanWindow;
+
 class VulkanBuffer 
 {
 public:
@@ -24,13 +26,14 @@ private:
     void allocateMemory();
     void cleanup();
 
-    VkBuffer m_buffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_memory = VK_NULL_HANDLE;
+    VulkanWindow *m_vulkanWindow = nullptr;
     VkDeviceSize m_size{};
     VkBufferUsageFlags m_usage{};
     uint32_t m_memoryTypeIndex{};
+
+    VkBuffer m_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_memory = VK_NULL_HANDLE;
     
-    VulkanWindow *m_vulkanWindow = nullptr;
     VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;

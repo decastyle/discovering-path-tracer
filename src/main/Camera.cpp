@@ -1,13 +1,15 @@
 #include "Camera.h"
 
-Camera::Camera(VulkanWindow *w) : m_vulkanWindow(w)
+Camera::Camera(VulkanWindow *w) 
+    : m_vulkanWindow(w)
 {
     QVector3D offset(0, 0, m_radius);
     m_cameraPosition = m_rotation.rotatedVector(offset);
     m_updatedMatrix.lookAt(m_cameraPosition, QVector3D(0, 0, 0), QVector3D(0, 1, 0));
 }
 
-void Camera::swapChainUpdate() {
+void Camera::cameraSwapChainUpdate() 
+{
     QSize swapChainSize = m_vulkanWindow->swapChainImageSize();
     float aspectRatio = swapChainSize.width() / static_cast<float>(swapChainSize.height());
 

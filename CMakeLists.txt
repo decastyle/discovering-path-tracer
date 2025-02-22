@@ -55,7 +55,6 @@ target_link_libraries(${PROJNAME} PRIVATE
 )
 qt_standard_project_setup()
 
-
 #=================================#
 # Vulkan binaries from VULKAN_SDK environment variable (FindVulkan.cmake)
 #
@@ -174,9 +173,8 @@ foreach(FILE ${RESOURCE_FILES})
     set_source_files_properties(${FILE} PROPERTIES QT_RESOURCE_ALIAS ${FILENAME})
 endforeach()
 
-
 # Generate QRC file dynamically (i couldn't come up with more shitty way to do this okay)
-set(QRC_FILE "${CMAKE_SOURCE_DIR}/src/main/shaders.qrc")
+set(QRC_FILE "${CMAKE_SOURCE_DIR}/src/shaders.qrc")
 file(WRITE ${QRC_FILE} "<?xml version=\"1.0\"?>\n")
 file(APPEND ${QRC_FILE} "<!DOCTYPE RCC><RCC version=\"1.0\">\n")
 file(APPEND ${QRC_FILE} "  <qresource>\n")
@@ -212,7 +210,8 @@ endif()
 #=================================#
 # For convenient #include of header files
 #
-target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/headers)
+target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/Vulkan)
 target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
 #=================================#

@@ -138,17 +138,21 @@ void VulkanImage::cleanup()
     if (m_sampler)
     {
         m_deviceFunctions->vkDestroySampler(m_device, m_sampler, nullptr);
+        m_sampler = VK_NULL_HANDLE;
     }
     if (m_imageView) 
     {
         m_deviceFunctions->vkDestroyImageView(m_device, m_imageView, nullptr);
+        m_imageView = VK_NULL_HANDLE;
     }
     if (m_memory) 
     {
         m_deviceFunctions->vkFreeMemory(m_device, m_memory, nullptr);
+        m_memory = VK_NULL_HANDLE;
     }
     if (m_image) 
     {
         m_deviceFunctions->vkDestroyImage(m_device, m_image, nullptr);
+        m_image = VK_NULL_HANDLE;
     }
 }

@@ -40,6 +40,7 @@ void VulkanCommandBuffer::cleanup()
     if (m_commandBuffer)
     {
         m_deviceFunctions->vkFreeCommandBuffers(m_device, m_commandPool, 1, &m_commandBuffer);
+        m_commandBuffer = VK_NULL_HANDLE;
     }
 }
 

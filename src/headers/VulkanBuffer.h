@@ -10,25 +10,27 @@ class VulkanBuffer
 {
 public:
     VulkanBuffer(VulkanWindow* vulkanWindow, VkDeviceSize size, VkBufferUsageFlags usage, uint32_t memoryTypeIndex);
-
     ~VulkanBuffer();
 
     VulkanBuffer(const VulkanBuffer&) = delete;
     VulkanBuffer& operator=(const VulkanBuffer&) = delete;
 
-    VulkanBuffer(VulkanBuffer&& other) noexcept;
-    VulkanBuffer& operator=(VulkanBuffer&& other) noexcept;
-
-    VkBuffer get() const { return m_buffer; }
-    void copyData(const void* data, VkDeviceSize size);
+    VkBuffer getBuffer() const { return m_buffer; }
+    
+    void copyData(const void* data, VkDeviceSize size, VkDeviceSize offset = 0);
 
 private:
+    void createBuffer();
+    void allocateMemory();
     void cleanup();
 
-    VulkanWindow *m_vulkanWindow;
     VkBuffer m_buffer = VK_NULL_HANDLE;
     VkDeviceMemory m_memory = VK_NULL_HANDLE;
-
+    VkDeviceSize m_size{};
+    VkBufferUsageFlags m_usage{};
+    uint32_t m_memoryTypeIndex{};
+    
+    VulkanWindow *m_vulkanWindow = nullptr;
     VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
     QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;

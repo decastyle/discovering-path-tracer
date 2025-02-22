@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QVulkanWindow>
 #include <QVulkanFunctions>
+#include <vector>
 
 #include "VulkanWindow.h"
 

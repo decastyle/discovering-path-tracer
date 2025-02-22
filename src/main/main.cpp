@@ -1,15 +1,9 @@
 #include <QApplication>
-#include <QWidget>
-#include <QVulkanWindow>
-#include <QThread>
 #include <QLoggingCategory>
-
 #include <vulkan/vulkan.h>
 
 #include "MainWindow.h"
 #include "VulkanWindow.h"
-#include "VulkanRenderer.h"
-#include "VulkanRayTracer.h"
 
 static const bool DEBUG = true;
 

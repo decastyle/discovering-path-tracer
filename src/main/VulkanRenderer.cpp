@@ -1,10 +1,4 @@
 #include "VulkanRenderer.h"
-#include "VulkanWindow.h"
-#include <QVulkanFunctions>
-#include <QFile>
-#include <QObject>
-#include "Camera.h"
-#include <QThread>
 
 static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
 static const uint64_t render_height    = 1024;
@@ -108,7 +102,6 @@ VulkanRenderer::VulkanRenderer(VulkanWindow *vulkanWindow)
 void VulkanRenderer::initResources()
 {
     VkResult result{};
-    // QVulkanInstance *inst = m_vulkanWindow->vulkanInstance();
     VkDevice device = m_vulkanWindow->device();
     m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(device);
     m_vulkanWindow->getVulkanRayTracer()->deviceReady();
@@ -130,6 +123,37 @@ void VulkanRenderer::initResources()
     /////////////////////////////////////////////////////////////////////
     // Create buffers
     /////////////////////////////////////////////////////////////////////
+
+    VulkanBuffer vertexBuffer(m_vulkanWindow, 
+                        sizeof(vertexData), 
+                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+                        m_vulkanWindow->deviceLocalMemoryIndex());
+
+    VulkanBuffer vertexStagingBuffer(m_vulkanWindow, 
+                        sizeof(vertexData), 
+                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+                        m_vulkanWindow->hostVisibleMemoryIndex());
+
+    vertexStagingBuffer.copyData(vertexData, sizeof(vertexData));
+
+    const VkDeviceSize uniformBufferDeviceSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign) + aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign);
+    VulkanBuffer uniformBuffer(m_vulkanWindow, 
+                        uniformBufferDeviceSize * concurrentFrameCount, 
+                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                        m_vulkanWindow->hostVisibleMemoryIndex());
+                        
+    QMatrix4x4 identityMatrix;
+    for (int i = 0; i < concurrentFrameCount; ++i) 
+    {
+        const VkDeviceSize offset = i * uniformBufferDeviceSize;
+        uniformBuffer.copyData(identityMatrix.constData(), 16 * sizeof(float), offset);
+
+        m_uniformBufferInfo[i] = VkDescriptorBufferInfo{
+            .buffer = uniformBuffer.getBuffer(),
+            .offset = offset,
+            .range = uniformBufferDeviceSize
+        };
+    }
 
     // Create vertex buffer
     VkBufferCreateInfo vertexBufferCreateInfo = {
@@ -157,7 +181,7 @@ void VulkanRenderer::initResources()
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = nullptr,
         .allocationSize = vertexBufferMemoryRequirements.size,
-        .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
+        .memoryTypeIndex = m_vulkanWindow->deviceLocalMemoryIndex()
     };
 
     result = m_deviceFunctions->vkAllocateMemory(device, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
@@ -229,7 +253,6 @@ void VulkanRenderer::initResources()
     m_deviceFunctions->vkUnmapMemory(device, m_vertexStagingMemory);
 
     // Create uniform buffer
-    const VkDeviceSize uniformBufferDeviceSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign) + aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign);
 
     VkBufferCreateInfo uniformBufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -299,6 +322,8 @@ void VulkanRenderer::initResources()
     /////////////////////////////////////////////////////////////////////
     // Create image and image view
     /////////////////////////////////////////////////////////////////////
+
+    VulkanImage renderImage(m_vulkanWindow, render_width, render_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_vulkanWindow->deviceLocalMemoryIndex());
 
     VkImageCreateInfo imageCreateInfo 
     {

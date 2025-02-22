@@ -5,6 +5,8 @@
 #include <QString>
 #include <QWindow>
 #include <QCursor>
+#include <QWheelEvent>
+#include <QMouseEvent>
 #include <vulkan/vulkan.h>
 
 #include "Camera.h"

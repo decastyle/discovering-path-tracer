@@ -1,9 +1,4 @@
-#include <QVulkanFunctions>
-#include <QApplication>
-#include <QVBoxLayout>
-
 #include "MainWindow.h"
-#include "VulkanWindow.h"
 
 MainWindow::MainWindow(VulkanWindow *vulkanWindow)
     : m_vulkanWindow(vulkanWindow)

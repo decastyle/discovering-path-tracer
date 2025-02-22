@@ -1,10 +1,15 @@
 #pragma once
 
 #include <QObject>
-#include <QVulkanWindow>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QThread>
 #include <vulkan/vulkan.h>
+
+#include "Camera.h"
 #include "VulkanWindow.h"
+#include "VulkanBuffer.h"
+#include "VulkanImage.h"
 
 class VulkanWindow;
 

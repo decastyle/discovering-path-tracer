@@ -5,6 +5,9 @@
 #include <QPlainTextEdit>
 #include <QLCDNumber>
 #include <QCursor>
+#include <QVulkanFunctions>
+#include <QApplication>
+#include <QVBoxLayout>
 
 #include "VulkanRenderer.h"
 #include "VulkanWindow.h"

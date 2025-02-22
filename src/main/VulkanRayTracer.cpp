@@ -1,5 +1,3 @@
-#include <vulkan/vulkan.h>
-#include <vector>
 #include "VulkanRayTracer.h"
 
 static const uint64_t render_width     = 1024;

@@ -1,20 +1,19 @@
 #include "VulkanRayTracer.h"
+#define TINYOBJLOADER_IMPLEMENTATION
+
+
+#include "BoundingVolumeHierarchy.h"
 
 static const uint64_t render_width     = 1024;
 static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
+// TODO: because VkDevice is only valid between VulkanRenderer::initResources() and VulkanRenderer::releaseResources(), RayTracer may fault while doing work on separate thread.
+// Possible solution is to create separate device, but then VkCmdCopyImage is no longer possible between two separate VkDevice
 void VulkanRayTracer::deviceReady()
 {
-    static int initialized = 0;
-
-    if(initialized == 0)
-    {
-        initComputePipeline();
-
-        initialized = 1;
-    }
+    initComputePipeline();
 }
 
 void VulkanRayTracer::initComputePipeline()
@@ -27,7 +26,59 @@ void VulkanRayTracer::initComputePipeline()
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
-    vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+    m_deviceFunctions->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+
+    /////////////////////////////////////////////////////////////////////
+    // Load the mesh of the first shape from an OBJ file
+    /////////////////////////////////////////////////////////////////////
+
+    tinyobj::ObjReader reader;
+
+    if (!reader.ParseFromFile("../scenes/Sylveon.obj")) { // TODO: Better scene loading
+        qDebug() << "Failed to load .obj: " << reader.Error();
+    }
+
+    const std::vector<tinyobj::real_t>& objVertices = reader.GetAttrib().GetVertices(); // [x0, y0, z0, x1, y1, z1, ...]
+    const std::vector<tinyobj::shape_t>& objShapes = reader.GetShapes(); // All shapes in the file
+
+    // Store indices from all shapes
+    std::vector<uint32_t> objIndices; // [v0, v1, v2, v3, v4, v5, ...]
+
+    for (const tinyobj::shape_t& objShape : objShapes) {
+        for (const tinyobj::index_t& index : objShape.mesh.indices) {
+            objIndices.push_back(index.vertex_index);
+        }
+    }
+
+    BVH bvh(objVertices, objIndices);
+    qDebug() << "BVH built with" << bvh.getNodes().size() << "nodes";
+
+    // std::vector<Triangle> triangles;
+
+    // for (const tinyobj::shape_t& objShape : objShapes) 
+    // {
+    //     for (size_t i = 0; i < objShape.mesh.indices.size(); i += 3) 
+    //     {
+    //         Triangle triangle;
+    //         triangle.v0 = glm::vec3(
+    //             objVertices[objShape.mesh.indices[i].vertex_index * 3],
+    //             objVertices[objShape.mesh.indices[i].vertex_index * 3 + 1],
+    //             objVertices[objShape.mesh.indices[i].vertex_index * 3 + 2]
+    //         );
+    //         triangle.v1 = glm::vec3(
+    //             objVertices[objShape.mesh.indices[i + 1].vertex_index * 3],
+    //             objVertices[objShape.mesh.indices[i + 1].vertex_index * 3 + 1],
+    //             objVertices[objShape.mesh.indices[i + 1].vertex_index * 3 + 2]
+    //         );
+    //         triangle.v2 = glm::vec3(
+    //             objVertices[objShape.mesh.indices[i + 2].vertex_index * 3],
+    //             objVertices[objShape.mesh.indices[i + 2].vertex_index * 3 + 1],
+    //             objVertices[objShape.mesh.indices[i + 2].vertex_index * 3 + 2]
+    //         );
+
+    //         triangles.push_back(triangle);
+    //     }
+    // }
 
     /////////////////////////////////////////////////////////////////////
     // Create image and image view
@@ -37,7 +88,7 @@ void VulkanRayTracer::initComputePipeline()
     {
         .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext         = nullptr,
-        .flags         = 0,
+        .flags         = 0, 
         .imageType     = VK_IMAGE_TYPE_2D,
         .format        = VK_FORMAT_R32G32B32A32_SFLOAT,  // 4-component float format
         .extent        = { render_width, render_height, 1 },

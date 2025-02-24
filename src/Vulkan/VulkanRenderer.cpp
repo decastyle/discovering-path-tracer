@@ -112,8 +112,8 @@ void VulkanRenderer::initResources()
     uint32_t graphicsQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (graphicsQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable graphics queue family found!");
-
     m_deviceFunctions->vkGetDeviceQueue(m_device, graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
+    m_graphicsCommandPool = VulkanCommandPool(m_vulkanWindow, graphicsQueueFamilyIndex);
 
     const int concurrentFrameCount = m_vulkanWindow->concurrentFrameCount(); 
     qDebug() << "Concurrent frame count:" << concurrentFrameCount;
@@ -128,23 +128,22 @@ void VulkanRenderer::initResources()
     /////////////////////////////////////////////////////////////////////
 
     m_vertexBuffer = VulkanBuffer(m_vulkanWindow, 
-                        sizeof(vertexData), 
-                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
-                        m_vulkanWindow->deviceLocalMemoryIndex());
+                                sizeof(vertexData), 
+                                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+                                m_vulkanWindow->deviceLocalMemoryIndex());
 
     m_vertexStagingBuffer = VulkanBuffer(m_vulkanWindow, 
-                        sizeof(vertexData), 
-                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-                        m_vulkanWindow->hostVisibleMemoryIndex());
-
+                                        sizeof(vertexData), 
+                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+                                        m_vulkanWindow->hostVisibleMemoryIndex());
     m_vertexStagingBuffer.copyData(vertexData, sizeof(vertexData));
 
     const VkDeviceSize uniformBufferDeviceSize = aligned(UNIFORM_MATRIX_DATA_SIZE, uniAlign) + aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign);
     m_uniformBuffer = VulkanBuffer(m_vulkanWindow, 
-                        uniformBufferDeviceSize * concurrentFrameCount, 
-                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                        m_vulkanWindow->hostVisibleMemoryIndex());
-                        
+                                uniformBufferDeviceSize * concurrentFrameCount, 
+                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                                m_vulkanWindow->hostVisibleMemoryIndex());
+                    
     QMatrix4x4 identityMatrix;
     for (int i = 0; i < concurrentFrameCount; ++i) 
     {
@@ -158,334 +157,18 @@ void VulkanRenderer::initResources()
         };
     }
 
-    // // Create vertex buffer
-    // VkBufferCreateInfo vertexBufferCreateInfo = {
-    //     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    //     .pNext = nullptr,
-    //     .flags = 0,
-    //     .size = sizeof(vertexData),
-    //     .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-    //     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    //     .queueFamilyIndexCount = 0,
-    //     .pQueueFamilyIndices = nullptr
-    // };
-
-    // m_result = m_deviceFunctions->vkCreateBuffer(m_device, &vertexBufferCreateInfo, nullptr, &m_vertexBuffer);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create vertex buffer (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkMemoryRequirements vertexBufferMemoryRequirements;
-    // m_deviceFunctions->vkGetBufferMemoryRequirements(m_device, m_vertexBuffer, &vertexBufferMemoryRequirements);
-
-    // VkMemoryAllocateInfo vertexBufferMemoryAllocateInfo = {
-    //     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    //     .pNext = nullptr,
-    //     .allocationSize = vertexBufferMemoryRequirements.size,
-    //     .memoryTypeIndex = m_vulkanWindow->deviceLocalMemoryIndex()
-    // };
-
-    // m_result = m_deviceFunctions->vkAllocateMemory(m_device, &vertexBufferMemoryAllocateInfo, nullptr, &m_vertexMemory);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to allocate vertex memory (error code: %d)", m_result);
-    //     return; 
-    // }
-
-    // m_result = m_deviceFunctions->vkBindBufferMemory(m_device, m_vertexBuffer, m_vertexMemory, 0);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to bind vertex buffer memory (error code: %d)", m_result);
-    //     return; 
-    // }
-
-    // // Create staging buffer
-    // VkBufferCreateInfo vertexStagingBufferCreateInfo = {
-    //     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    //     .pNext = nullptr,
-    //     .flags = 0,
-    //     .size = sizeof(vertexData),
-    //     .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    //     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    //     .queueFamilyIndexCount = 0,
-    //     .pQueueFamilyIndices = nullptr
-    // };
-
-    // m_result = m_deviceFunctions->vkCreateBuffer(m_device, &vertexStagingBufferCreateInfo, nullptr, &m_vertexStagingBuffer);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create staging buffer (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkMemoryRequirements vertexStagingBufferMemoryRequirements;
-    // m_deviceFunctions->vkGetBufferMemoryRequirements(m_device, m_vertexStagingBuffer, &vertexStagingBufferMemoryRequirements);
-
-    // VkMemoryAllocateInfo vertexStagingBufferMemoryAllocateInfo = {
-    //     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    //     .pNext = nullptr,
-    //     .allocationSize = vertexStagingBufferMemoryRequirements.size,
-    //     .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
-    // };
-
-    // m_result = m_deviceFunctions->vkAllocateMemory(m_device, &vertexStagingBufferMemoryAllocateInfo, nullptr, &m_vertexStagingMemory);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to allocate staging memory (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // m_result = m_deviceFunctions->vkBindBufferMemory(m_device, m_vertexStagingBuffer, m_vertexStagingMemory, 0);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to bind staging buffer memory (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // quint8 *pStaging = nullptr;
-    // m_result = m_deviceFunctions->vkMapMemory(m_device, m_vertexStagingMemory, 0, vertexStagingBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pStaging));
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to map staging memory (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // memcpy(pStaging, vertexData, sizeof(vertexData));
-    // m_deviceFunctions->vkUnmapMemory(m_device, m_vertexStagingMemory);
-
-    // // Create uniform buffer
-
-    // VkBufferCreateInfo uniformBufferCreateInfo = {
-    //     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    //     .pNext = nullptr,
-    //     .flags = 0,
-    //     .size = uniformBufferDeviceSize * concurrentFrameCount,
-    //     .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-    //     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    //     .queueFamilyIndexCount = 0,
-    //     .pQueueFamilyIndices = nullptr
-    // };
-    
-    // m_result = m_deviceFunctions->vkCreateBuffer(m_device, &uniformBufferCreateInfo, nullptr, &m_uniformBuffer);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create uniform buffer (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkMemoryRequirements uniformBufferMemoryRequirements;
-    // m_deviceFunctions->vkGetBufferMemoryRequirements(m_device, m_uniformBuffer, &uniformBufferMemoryRequirements);
-
-    // VkMemoryAllocateInfo uniformBufferMemoryAllocateInfo = {
-    //     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    //     .pNext = nullptr,
-    //     .allocationSize = uniformBufferMemoryRequirements.size,
-    //     .memoryTypeIndex = m_vulkanWindow->hostVisibleMemoryIndex()
-    // };
-
-    // m_result = m_deviceFunctions->vkAllocateMemory(m_device, &uniformBufferMemoryAllocateInfo, nullptr, &m_uniformMemory);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to allocate uniform memory (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // m_result = m_deviceFunctions->vkBindBufferMemory(m_device, m_uniformBuffer, m_uniformMemory, 0);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to bind uniform buffer memory (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // quint8 *pUniform = nullptr;
-    // m_result = m_deviceFunctions->vkMapMemory(m_device, m_uniformMemory, 0, uniformBufferMemoryRequirements.size, 0, reinterpret_cast<void **>(&pUniform));
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to map uniform memory (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // for (int i = 0; i < concurrentFrameCount; ++i) 
-    // {
-    //     const VkDeviceSize offset = i * uniformBufferDeviceSize;
-    //     memcpy(pUniform + offset, identityMatrix.constData(), 16 * sizeof(float));
-
-    //     m_uniformBufferInfo[i] = VkDescriptorBufferInfo{
-    //         .buffer = m_uniformBuffer,
-    //         .offset = offset,
-    //         .range = uniformBufferDeviceSize
-    //     };
-    // }
-    // m_deviceFunctions->vkUnmapMemory(m_device, m_uniformMemory);
-
     /////////////////////////////////////////////////////////////////////
     // Create image and image view
     /////////////////////////////////////////////////////////////////////
 
     m_renderImage = VulkanImage(m_vulkanWindow, 
-    render_width, render_height, 
-    VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 
-    m_vulkanWindow->deviceLocalMemoryIndex());
-
-    // VkImageCreateInfo imageCreateInfo 
-    // {
-    //     .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-    //     .pNext         = nullptr,
-    //     .flags         = 0,
-    //     .imageType     = VK_IMAGE_TYPE_2D,
-    //     .format        = VK_FORMAT_R32G32B32A32_SFLOAT,  // 4-component float format
-    //     .extent        = { render_width, render_height, 1 },
-    //     .mipLevels     = 1,
-    //     .arrayLayers   = 1,
-    //     .samples       = VK_SAMPLE_COUNT_1_BIT,
-    //     .tiling        = VK_IMAGE_TILING_OPTIMAL,
-    //     .usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-    //     .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
-    //     .queueFamilyIndexCount = 0,
-    //     .pQueueFamilyIndices   = nullptr,
-    //     .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
-    // };
-
-    // m_result = m_deviceFunctions->vkCreateImage(m_device, &imageCreateInfo, nullptr, &m_renderImage);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create image (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkMemoryRequirements storageImageMemoryRequirements;
-    // m_deviceFunctions->vkGetImageMemoryRequirements(m_device, m_renderImage, &storageImageMemoryRequirements);
-    
-    // VkMemoryAllocateInfo memoryAllocateInfo 
-    // {
-    //     .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    //     .pNext           = nullptr,
-    //     .allocationSize  = storageImageMemoryRequirements.size,
-    //     .memoryTypeIndex = m_vulkanWindow->deviceLocalMemoryIndex()
-    // };    
-    
-    // m_result = m_deviceFunctions->vkAllocateMemory(m_device, &memoryAllocateInfo, nullptr, &m_renderImageMemory);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to allocate image memory (error code: %d)", m_result);
-    //     return;
-    // }
-    
-    // m_deviceFunctions->vkBindImageMemory(m_device, m_renderImage, m_renderImageMemory, 0);
-
-    // VkImageViewCreateInfo imageViewCreateInfo 
-    // {
-    //     .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-    //     .pNext            = nullptr,
-    //     .flags            = 0,
-    //     .image            = m_renderImage,
-    //     .viewType         = VK_IMAGE_VIEW_TYPE_2D,
-    //     .format           = VK_FORMAT_R32G32B32A32_SFLOAT,
-    //     .components       = {}, // Identity mapping (R->R, G->G, etc.)
-    //     .subresourceRange = {
-    //         .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-    //         .baseMipLevel   = 0,
-    //         .levelCount     = 1,
-    //         .baseArrayLayer = 0,
-    //         .layerCount     = 1
-    //     }
-    // };    
-
-    // m_result = m_deviceFunctions->vkCreateImageView(m_device, &imageViewCreateInfo, nullptr, &m_renderImageView);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create image view (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkSamplerCreateInfo samplerCreateInfo
-    // {
-    //         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-    //         .pNext = nullptr,
-    //         .flags = 0,
-    //         .magFilter = VK_FILTER_LINEAR,
-    //         .minFilter = VK_FILTER_LINEAR,
-    //         .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-    //         .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    //         .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    //         .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    //         .mipLodBias = 0.0f,
-    //         .anisotropyEnable = VK_FALSE, // TODO: Check if anisotropy is supported
-    //         .maxAnisotropy = maxSamplerAnisotropy,
-    //         .compareEnable = VK_FALSE,
-    //         .compareOp = VK_COMPARE_OP_ALWAYS,
-    //         .minLod = 0.0f,
-    //         .maxLod = VK_LOD_CLAMP_NONE,
-    //         .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-    //         .unnormalizedCoordinates = VK_FALSE,
-    //     };
-
-    // m_result = m_deviceFunctions->vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_textureSampler);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create sampler (error code: %d)", m_result);
-    //     return;
-    // }
-
-    /////////////////////////////////////////////////////////////////////
-    // Create command buffer
-    /////////////////////////////////////////////////////////////////////
-
-    m_graphicsCommandPool = VulkanCommandPool(m_vulkanWindow, graphicsQueueFamilyIndex);
-
-    // VkCommandPoolCreateInfo commandPoolCreateInfo 
-    // {
-    //     .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-    //     .pNext            = nullptr,
-    //     .flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-    //     .queueFamilyIndex = graphicsQueueFamilyIndex
-    // };
-    
-    // VkCommandPool commandPool;
-
-    // m_result = m_deviceFunctions->vkCreateCommandPool(m_device, &commandPoolCreateInfo, nullptr, &commandPool);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to create command pool (error code: %d)", m_result);
-    //     return;
-    // }
+                                render_width, render_height, 
+                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 
+                                m_vulkanWindow->deviceLocalMemoryIndex());
 
     VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
 
     commandBuffer.beginSingleTimeCommandBuffer();
-    // VkCommandBufferAllocateInfo commandBufferAllocateInfo 
-    // {
-    //     .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-    //     .pNext              = nullptr,
-    //     .commandPool        = commandPool,
-    //     .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-    //     .commandBufferCount = 1
-    // };
-
-    // VkCommandBuffer commandBuffer;
-    // m_result = m_deviceFunctions->vkAllocateCommandBuffers(m_device, &commandBufferAllocateInfo, &commandBuffer);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to allocate command buffer (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkCommandBufferBeginInfo commandBufferBeginInfo 
-    // {
-    //     .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    //     .pNext            = nullptr,
-    //     .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    //     .pInheritanceInfo = nullptr
-    // };
-    
-    // m_result = m_deviceFunctions->vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to begin command buffer (error code: %d)", m_result);
-    //     return;
-    // }
 
     VkImageMemoryBarrier imageMemoryBarrierToTransferDst
     {
@@ -539,8 +222,7 @@ void VulkanRenderer::initResources()
         }
     };
 
-    VulkanRayTracer *vulkanRayTracer = m_vulkanWindow->getVulkanRayTracer();
-    VkImage storageImage = vulkanRayTracer->getStorageImage(); 
+    VkImage storageImage = m_vulkanWindow->getVulkanRayTracer()->getStorageImage(); 
 
     m_deviceFunctions->vkCmdCopyImage(
         commandBuffer.getCommandBuffer(), 
@@ -577,40 +259,6 @@ void VulkanRenderer::initResources()
     0, nullptr,
     0, nullptr, 
     1, &imageMemoryBarrierToShaderRead);   
-
-    // m_result = m_deviceFunctions->vkEndCommandBuffer(commandBuffer);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to end command buffer (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // VkSubmitInfo submitInfo 
-    // {
-    //     .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    //     .pNext                = nullptr,
-    //     .waitSemaphoreCount   = 0,
-    //     .pWaitSemaphores      = nullptr,
-    //     .pWaitDstStageMask    = nullptr,
-    //     .commandBufferCount   = 1,
-    //     .pCommandBuffers      = &commandBuffer,
-    //     .signalSemaphoreCount = 0,
-    //     .pSignalSemaphores    = nullptr
-    // };   
-
-    // m_result = m_deviceFunctions->vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to submit command buffer to graphics queue (error code: %d)", m_result);
-    //     return;
-    // }
-
-    // m_result = m_deviceFunctions->vkQueueWaitIdle(m_graphicsQueue);
-    // if (m_result != VK_SUCCESS)
-    // {
-    //     qWarning("Failed to wait for graphics queue (error code: %d)", m_result);
-    //     return;
-    // }
 
     commandBuffer.endSubmitAndWait();
 
@@ -1092,31 +740,6 @@ void VulkanRenderer::releaseResources()
     m_vertexStagingBuffer.destroy();
     m_uniformBuffer.destroy();
     m_renderImage.destroy();
-
-    // if (m_vertexBuffer) {
-    //     m_deviceFunctions->vkDestroyBuffer(device, m_vertexBuffer, nullptr);
-    //     m_vertexBuffer = VK_NULL_HANDLE;
-    // }
-
-    // if (m_vertexStagingBuffer) {
-    //     m_deviceFunctions->vkDestroyBuffer(device, m_vertexStagingBuffer, nullptr);
-    //     m_vertexStagingBuffer = VK_NULL_HANDLE;
-    // }
-
-    // if (m_uniformBuffer) {
-    //     m_deviceFunctions->vkDestroyBuffer(device, m_uniformBuffer, nullptr);
-    //     m_uniformBuffer = VK_NULL_HANDLE;
-    // }
-
-    // if (m_vertexStagingMemory) {
-    //     m_deviceFunctions->vkFreeMemory(device, m_vertexStagingMemory, nullptr);
-    //     m_vertexStagingMemory = VK_NULL_HANDLE;
-    // }
-
-    // if (m_uniformMemory) {
-    //     m_deviceFunctions->vkFreeMemory(device, m_uniformMemory, nullptr);
-    //     m_uniformMemory = VK_NULL_HANDLE;
-    // }
 }
 
 void VulkanRenderer::startNextFrame()
@@ -1137,7 +760,10 @@ void VulkanRenderer::startNextFrame()
         .size = sizeof(vertexData)
     };
 
-    m_deviceFunctions->vkCmdCopyBuffer(commandBuffer, m_vertexStagingBuffer.getBuffer(), m_vertexBuffer.getBuffer(), 1, &bufferCopyRegion);
+    m_deviceFunctions->vkCmdCopyBuffer(commandBuffer, 
+                                    m_vertexStagingBuffer.getBuffer(), 
+                                    m_vertexBuffer.getBuffer(), 
+                                    1, &bufferCopyRegion);
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline barrier to ensure staging buffer copy completes before rendering
@@ -1181,7 +807,12 @@ void VulkanRenderer::startNextFrame()
         .pNext = nullptr,
         .renderPass = m_vulkanWindow->defaultRenderPass(),
         .framebuffer = m_vulkanWindow->currentFramebuffer(),
-        .renderArea = { .offset = { 0, 0 }, .extent = { static_cast<uint32_t>(swapChainSize.width()), static_cast<uint32_t>(swapChainSize.height()) } },
+        .renderArea = { 
+            .offset = { 0, 0 }, 
+            .extent = { 
+                static_cast<uint32_t>(swapChainSize.width()), 
+                static_cast<uint32_t>(swapChainSize.height()) } 
+            },
         .clearValueCount = static_cast<uint32_t>(m_vulkanWindow->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3 : 2),
         .pClearValues = clearValues
     };
@@ -1211,14 +842,23 @@ void VulkanRenderer::startNextFrame()
     // Bind pipeline
     /////////////////////////////////////////////////////////////////////
 
-    m_deviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    m_deviceFunctions->vkCmdBindPipeline(commandBuffer, 
+                                        VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                                        m_pipeline);
 
-    m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                               &m_descriptorSet[m_vulkanWindow->currentFrame()], 0, nullptr);
+    m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer, 
+                                            VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                                            m_pipelineLayout, 
+                                            0, 1,
+                                            &m_descriptorSet[currentFrame], 
+                                            0, nullptr);
 
     VkDeviceSize vertexBufferOffset = 0;
     VkBuffer vertexBuffer = m_vertexBuffer.getBuffer();
-    m_deviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, &vertexBufferOffset);
+    m_deviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 
+                                            0, 1, 
+                                            &vertexBuffer, 
+                                            &vertexBufferOffset);
 
 
     VkViewport viewport = {
@@ -1249,11 +889,12 @@ void VulkanRenderer::startNextFrame()
 
     m_deviceFunctions->vkCmdEndRenderPass(commandBuffer);
 
-    qint64 renderTimeNs = m_renderTimer.nsecsElapsed();
-    double fps = 1e9/(static_cast<double>(renderTimeNs));
+    m_renderTimeNs = m_renderTimer.nsecsElapsed();
+    double fps = 1e9/(static_cast<double>(m_renderTimeNs));
 
-    qDebug().nospace() << "Render time: " << (renderTimeNs / 1.0e6) << " ms, FPS: " << fps;
+    qDebug().nospace() << "Render time: " << (m_renderTimeNs / 1.0e6) << " ms, FPS: " << fps;
 
     m_vulkanWindow->frameReady();
     m_vulkanWindow->requestUpdate(); 
 }
+

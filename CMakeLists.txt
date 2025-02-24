@@ -214,6 +214,12 @@ target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/Vulkan)
 target_include_directories(${PROJNAME} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
+
+#=================================#
+# GLM configuration
+#
+target_include_directories(${PROJNAME} PRIVATE "${CMAKE_SOURCE_DIR}/external/glm")
+
 #=================================#
 # Platform-specific configuration
 #

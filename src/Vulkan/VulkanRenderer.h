@@ -27,6 +27,8 @@ public:
     void releaseResources() override;
     void startNextFrame() override;
 
+    qint64 getDeltaTimeNs() { return m_renderTimeNs; }
+
 protected:
     VulkanWindow *m_vulkanWindow = nullptr;
 
@@ -58,6 +60,7 @@ protected:
     VulkanCommandPool m_graphicsCommandPool{};
 
     QElapsedTimer m_renderTimer{};
+    qint64 m_renderTimeNs{};
 
     VulkanBuffer m_vertexBuffer{};
     VulkanBuffer m_vertexStagingBuffer{};

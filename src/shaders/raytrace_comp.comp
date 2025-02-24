@@ -8,7 +8,7 @@ void main()
 {
     // The resolution of the buffer, which in this case is a hardcoded vector
     // of 2 unsigned integers:
-    const uvec2 resolution = uvec2(1024, 1024);
+    const ivec2 resolution = imageSize(storageImage);
 
     // Get the coordinates of the pixel for this invocation:
     //

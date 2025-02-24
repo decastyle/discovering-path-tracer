@@ -1,4 +1,6 @@
 #include "VulkanBuffer.h"
+#include "VulkanWindow.h"
+
 
 VulkanBuffer::VulkanBuffer(VulkanWindow* vulkanWindow, VkDeviceSize size, VkBufferUsageFlags usage, uint32_t memoryTypeIndex) 
     : m_vulkanWindow(vulkanWindow), 

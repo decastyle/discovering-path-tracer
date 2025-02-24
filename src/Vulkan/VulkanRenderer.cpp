@@ -1,5 +1,6 @@
 #include "VulkanRenderer.h"
 #include "VulkanWindow.h"
+#include <QVulkanFunctions>
 
 static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
 static const uint64_t render_height    = 1024;

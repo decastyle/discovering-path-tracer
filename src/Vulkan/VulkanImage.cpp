@@ -1,4 +1,5 @@
 #include "VulkanImage.h"
+#include "VulkanWindow.h"
 
 VulkanImage::VulkanImage(VulkanWindow* vulkanWindow, uint32_t width, uint32_t height, VkBufferUsageFlags usage, uint32_t memoryTypeIndex)
     : m_vulkanWindow(vulkanWindow), 

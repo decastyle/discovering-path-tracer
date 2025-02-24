@@ -1,23 +1,19 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include <stdexcept>
-#include <cstring>
-#include <QVulkanFunctions>
-#include "VulkanWindow.h"
+#include <QVulkanDeviceFunctions>
 
-class VulkanWindow; 
+class VulkanWindow;
 
 class VulkanBuffer 
 {
 public:
-    VulkanBuffer() = default; 
+    VulkanBuffer() = default;
     VulkanBuffer(VulkanWindow* vulkanWindow, VkDeviceSize size, VkBufferUsageFlags usage, uint32_t memoryTypeIndex);
     ~VulkanBuffer();
 
     VulkanBuffer(const VulkanBuffer&) = delete;
     VulkanBuffer& operator=(const VulkanBuffer&) = delete;
-
     VulkanBuffer& operator=(VulkanBuffer&& other) noexcept;
 
     VkBuffer getBuffer() const { return m_buffer; }
@@ -30,10 +26,9 @@ private:
     void createBuffer();
     void allocateMemory();
     void cleanup();
-
     void swap(VulkanBuffer& other) noexcept;
 
-    VulkanWindow *m_vulkanWindow = nullptr;
+    VulkanWindow* m_vulkanWindow = nullptr;
     VkDeviceSize m_size{};
     VkBufferUsageFlags m_usage{};
     uint32_t m_memoryTypeIndex{};
@@ -42,5 +37,5 @@ private:
     VkDeviceMemory m_memory = VK_NULL_HANDLE;
     
     VkResult m_result{};
-    QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;
+    QVulkanDeviceFunctions* m_deviceFunctions = nullptr;
 };

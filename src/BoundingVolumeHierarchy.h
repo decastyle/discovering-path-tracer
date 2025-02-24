@@ -1,7 +1,8 @@
 #pragma once
+
 #include <glm/glm.hpp>
 #include <vector>
-#include <algorithm>
+
 #include "tiny_obj_loader.h"
 
 struct BVHNode 

@@ -1,14 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include <QObject>
-#include <QString>
-#include <QWindow>
-#include <QCursor>
-#include <QFile>
-#include <QVulkanWindow>
-#include <QVulkanFunctions>
-#include <vector>
+#include <QVulkanDeviceFunctions>
 
 #include "VulkanBuffer.h"
 #include "VulkanImage.h"
@@ -17,21 +10,18 @@
 
 class VulkanWindow;
 
-class VulkanBuffer;
-
 class VulkanRayTracer 
 {
 public:
-    VulkanRayTracer(VulkanWindow *w);
+    VulkanRayTracer(VulkanWindow* w);
 
     VkImage getStorageImage();
-
     void deviceReady();
 
 private:
-    void initComputePipeline();  
+    void initComputePipeline();
 
-    VulkanWindow *m_vulkanWindow;
+    VulkanWindow* m_vulkanWindow = nullptr;
 
     VulkanBuffer m_vertexBuffer{};
     VulkanBuffer m_vertexStagingBuffer{};
@@ -52,5 +42,5 @@ private:
 
     VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result{};
-    QVulkanDeviceFunctions *m_deviceFunctions = nullptr;
+    QVulkanDeviceFunctions* m_deviceFunctions = nullptr;
 };

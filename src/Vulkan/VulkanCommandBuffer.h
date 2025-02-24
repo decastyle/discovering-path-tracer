@@ -1,15 +1,14 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include <QVulkanFunctions>
-#include "VulkanWindow.h"
+#include <QVulkanDeviceFunctions>
 
 class VulkanWindow;
 
 class VulkanCommandBuffer
 {
 public:
-    VulkanCommandBuffer() = default; 
+    VulkanCommandBuffer() = default;
     VulkanCommandBuffer(VulkanWindow* vulkanWindow, VkCommandPool commandPool, VkQueue queue);
     ~VulkanCommandBuffer();
 
@@ -30,7 +29,7 @@ private:
 
     VkCommandBuffer m_commandBuffer = VK_NULL_HANDLE;
     bool m_isRecording = false;
-    
+
     VkResult m_result{};
-    QVulkanDeviceFunctions *m_deviceFunctions = VK_NULL_HANDLE;
+    QVulkanDeviceFunctions* m_deviceFunctions = nullptr;
 };

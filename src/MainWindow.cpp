@@ -1,4 +1,12 @@
 #include "MainWindow.h"
+#include <QWidget>
+#include <QTabWidget>
+#include <QPlainTextEdit>
+#include <QLCDNumber>
+#include <QCursor>
+#include <QVulkanFunctions>
+#include <QApplication>
+#include <QVBoxLayout>
 
 MainWindow::MainWindow(VulkanWindow *vulkanWindow)
     : m_vulkanWindow(vulkanWindow)

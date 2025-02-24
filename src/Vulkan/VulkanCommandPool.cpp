@@ -1,4 +1,6 @@
 #include "VulkanCommandPool.h"
+#include "VulkanWindow.h"
+#include <QVulkanFunctions>
 
 VulkanCommandPool::VulkanCommandPool(VulkanWindow* vulkanWindow, uint32_t queueFamilyIndex)
     : m_vulkanWindow(vulkanWindow), 

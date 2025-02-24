@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "VulkanWindow.h"
 
 Camera::Camera(VulkanWindow *w) 
     : m_vulkanWindow(w)

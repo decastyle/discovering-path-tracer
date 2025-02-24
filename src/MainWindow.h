@@ -1,27 +1,14 @@
 #pragma once
 
 #include <QWidget>
-#include <QTabWidget>
-#include <QPlainTextEdit>
-#include <QLCDNumber>
-#include <QCursor>
-#include <QVulkanFunctions>
-#include <QApplication>
-#include <QVBoxLayout>
 
-#include "VulkanRenderer.h"
 #include "VulkanWindow.h"
 
-class MainWindow : public QWidget
-{
+class MainWindow : public QWidget {
+    Q_OBJECT
 public:
-    MainWindow(VulkanWindow *VulkanWindow);
+    MainWindow(VulkanWindow* vulkanWindow);
 
 private:
-    VulkanWindow *m_vulkanWindow;
-    // QTabWidget *m_infoTab;
-    // QPlainTextEdit *m_info;
-    // QLCDNumber *m_number;
+    VulkanWindow* m_vulkanWindow = nullptr;
 };
-
-// TODO: Make GUI look good

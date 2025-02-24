@@ -1,6 +1,16 @@
 #include "VulkanWindow.h"
 #include "VulkanRenderer.h"
 
+#include <QObject>
+#include <QVulkanWindow>
+#include <QString>
+#include <QWindow>
+#include <QCursor>
+#include <QWheelEvent>
+#include <QMouseEvent>
+#include <vulkan/vulkan.h>
+#include <QFile>
+
 VulkanWindow::VulkanWindow()
 {
 

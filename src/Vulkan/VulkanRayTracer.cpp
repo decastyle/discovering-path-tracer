@@ -6,6 +6,8 @@
 #include "VulkanCommandPool.h"
 #include "BoundingVolumeHierarchy.h"
 
+#include "VulkanWindow.h"
+
 static const uint64_t render_width     = 1024;
 static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;

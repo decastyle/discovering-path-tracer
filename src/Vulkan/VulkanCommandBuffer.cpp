@@ -1,4 +1,5 @@
 #include "VulkanCommandBuffer.h"
+#include "VulkanWindow.h"
 
 VulkanCommandBuffer::VulkanCommandBuffer(VulkanWindow* vulkanWindow, VkCommandPool commandPool, VkQueue queue)
     : m_vulkanWindow(vulkanWindow), 

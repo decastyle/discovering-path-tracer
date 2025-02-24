@@ -1,5 +1,6 @@
 #include "BoundingVolumeHierarchy.h"
 #include <QDebug>
+#include <algorithm>
 
 BVH::BVH(const std::vector<tinyobj::real_t>& objVertices, const std::vector<uint32_t>& objIndices) 
     : vertices(objVertices), indices(objIndices)

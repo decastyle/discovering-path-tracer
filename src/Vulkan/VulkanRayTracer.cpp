@@ -1,7 +1,9 @@
 #include "VulkanRayTracer.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 
-
+#include "VulkanBuffer.h"
+#include "VulkanCommandBuffer.h"
+#include "VulkanCommandPool.h"
 #include "BoundingVolumeHierarchy.h"
 
 static const uint64_t render_width     = 1024;
@@ -27,6 +29,7 @@ void VulkanRayTracer::initComputePipeline()
         qDebug("No suitable compute queue family found!");
 
     m_deviceFunctions->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+    VulkanCommandPool computeCommandPool = VulkanCommandPool(m_vulkanWindow, computeQueueFamilyIndex);
 
     /////////////////////////////////////////////////////////////////////
     // Load the mesh of the first shape from an OBJ file
@@ -52,6 +55,56 @@ void VulkanRayTracer::initComputePipeline()
 
     BVH bvh(objVertices, objIndices);
     qDebug() << "BVH built with" << bvh.getNodes().size() << "nodes";
+
+    VkDeviceSize vertexSize = objVertices.size() * sizeof(tinyobj::real_t);
+    m_vertexBuffer = VulkanBuffer(m_vulkanWindow, 
+                                    vertexSize,
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                    m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_vertexStagingBuffer = VulkanBuffer(m_vulkanWindow, 
+                                        vertexSize,
+                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                        m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_vertexStagingBuffer.copyData(objVertices.data(), vertexSize); 
+
+    {
+        VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, computeCommandPool.getCommandPool(), m_computeQueue);
+
+        commandBuffer.beginSingleTimeCommandBuffer();
+
+            VkBufferCopy bufferCopyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = vertexSize
+        };
+
+        m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
+                                            m_vertexStagingBuffer.getBuffer(), 
+                                            m_vertexBuffer.getBuffer(), 
+                                            1, &bufferCopyRegion);
+
+        VkMemoryBarrier memoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT
+        };
+
+        m_deviceFunctions->vkCmdPipelineBarrier(
+            commandBuffer.getCommandBuffer(),
+            VK_PIPELINE_STAGE_TRANSFER_BIT,         
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,    
+            0,
+            1, &memoryBarrier,  // Global memory barrier
+            0, nullptr,
+            0, nullptr
+        );
+        
+        commandBuffer.endSubmitAndWait();
+    }
+
 
     // std::vector<Triangle> triangles;
 

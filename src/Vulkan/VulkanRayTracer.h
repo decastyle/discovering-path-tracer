@@ -10,9 +10,14 @@
 #include <QVulkanFunctions>
 #include <vector>
 
-#include "VulkanWindow.h"
+#include "VulkanBuffer.h"
+#include "VulkanImage.h"
+#include "VulkanCommandPool.h"
+#include "VulkanCommandBuffer.h"
 
 class VulkanWindow;
+
+class VulkanBuffer;
 
 class VulkanRayTracer 
 {
@@ -27,6 +32,9 @@ private:
     void initComputePipeline();  
 
     VulkanWindow *m_vulkanWindow;
+
+    VulkanBuffer m_vertexBuffer{};
+    VulkanBuffer m_vertexStagingBuffer{};
     
     VkImage m_storageImage = VK_NULL_HANDLE;
     VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;

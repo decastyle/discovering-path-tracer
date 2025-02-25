@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     //     VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
     // });
 
-    if(DEBUG) 
+    if (DEBUG) 
     {
         QLoggingCategory::setFilterRules(QStringLiteral("qt.vulkan=true"));
         instance.setLayers({ "VK_LAYER_KHRONOS_validation" });
@@ -33,7 +33,8 @@ int main(int argc, char *argv[])
 
     if (!instance.create()) 
     {
-        qDebug("Failed to create Vulkan instance: %d", instance.errorCode());
+        qWarning("Failed to create Vulkan instance (error code: %d)", instance.errorCode());
+        return;
     }
 
     VulkanWindow* vulkanWindow = new VulkanWindow;

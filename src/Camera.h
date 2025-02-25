@@ -6,7 +6,8 @@
 
 class VulkanWindow;
 
-class Camera {
+class Camera 
+{
 public:
     Camera(VulkanWindow* w);
 

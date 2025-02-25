@@ -12,7 +12,8 @@ struct BVHNode
     // triangle index is pointing to the first index of a triangle, or startTriangleIndex * 3
 };
 
-class BVH {
+class BVH 
+{
 public:
     BVH(const std::vector<tinyobj::real_t>& objVertices, const std::vector<uint32_t>& objIndices);
 

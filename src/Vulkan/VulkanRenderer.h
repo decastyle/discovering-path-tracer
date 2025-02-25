@@ -12,7 +12,8 @@
 
 class VulkanWindow;
 
-class VulkanRenderer : public QVulkanWindowRenderer {
+class VulkanRenderer : public QVulkanWindowRenderer 
+{
 public:
     VulkanRenderer(VulkanWindow* vulkanWindow);
 

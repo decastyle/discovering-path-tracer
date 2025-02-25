@@ -25,10 +25,18 @@ private:
 
     VulkanBuffer m_vertexBuffer{};
     VulkanBuffer m_vertexStagingBuffer{};
+
+    VulkanBuffer m_indexBuffer{};
+    VulkanBuffer m_indexStagingBuffer{};
+
+    VulkanBuffer m_BVHBuffer{};
+    VulkanBuffer m_BVHStagingBuffer{};
+
+    VulkanImage m_storageImage{};
     
-    VkImage m_storageImage = VK_NULL_HANDLE;
-    VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
-    VkImageView m_storageImageView = VK_NULL_HANDLE;
+    // VkImage m_storageImage = VK_NULL_HANDLE;
+    // VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
+    // VkImageView m_storageImageView = VK_NULL_HANDLE;
 
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;

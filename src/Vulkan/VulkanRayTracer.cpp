@@ -13,28 +13,30 @@ static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
+VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
+    : m_vulkanWindow(w){}
+
 // TODO: because VkDevice is only valid between VulkanRenderer::initResources() and VulkanRenderer::releaseResources(), RayTracer may fault while doing work on separate thread.
 // Possible solution is to create separate device, but then VkCmdCopyImage is no longer possible between two separate VkDevice
 void VulkanRayTracer::deviceReady()
 {
-    initComputePipeline();
+    initComputePipeline(); // TODO: Override QVulkanWindowRenderer::releaseResources() helper function to avoid destroying device on minimization
 }
 
 void VulkanRayTracer::initComputePipeline()
 {
-    VkResult result{};
-    VkDevice dev = m_vulkanWindow->device();
-    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(dev);
+    m_device = m_vulkanWindow->device();
+    m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
 
     uint32_t computeQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
 
-    m_deviceFunctions->vkGetDeviceQueue(dev, computeQueueFamilyIndex, 0, &m_computeQueue);
+    m_deviceFunctions->vkGetDeviceQueue(m_device, computeQueueFamilyIndex, 0, &m_computeQueue);
     VulkanCommandPool computeCommandPool = VulkanCommandPool(m_vulkanWindow, computeQueueFamilyIndex);
 
     /////////////////////////////////////////////////////////////////////
-    // Load the mesh of the first shape from an OBJ file
+    // Load the mesh from an OBJ file
     /////////////////////////////////////////////////////////////////////
 
     tinyobj::ObjReader reader;
@@ -58,25 +60,64 @@ void VulkanRayTracer::initComputePipeline()
     BVH bvh(objVertices, objIndices);
     qDebug() << "BVH built with" << bvh.getNodes().size() << "nodes";
 
-    VkDeviceSize vertexSize = objVertices.size() * sizeof(tinyobj::real_t);
-    m_vertexBuffer = VulkanBuffer(m_vulkanWindow, 
-                                    vertexSize,
-                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                    m_vulkanWindow->deviceLocalMemoryIndex());
-        
-    m_vertexStagingBuffer = VulkanBuffer(m_vulkanWindow, 
-                                        vertexSize,
-                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                        m_vulkanWindow->hostVisibleMemoryIndex());
+    /////////////////////////////////////////////////////////////////////
+    // Buffer setup
+    /////////////////////////////////////////////////////////////////////
 
-    m_vertexStagingBuffer.copyData(objVertices.data(), vertexSize); 
+    // Setup vertex buffer
+    VkDeviceSize vertexSize = bvh.getVertices().size() * sizeof(tinyobj::real_t);
+    m_vertexBuffer          = VulkanBuffer(m_vulkanWindow, 
+                                            vertexSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_vertexStagingBuffer   = VulkanBuffer(m_vulkanWindow, 
+                                            vertexSize,
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_vertexStagingBuffer.copyData(bvh.getVertices().data(), vertexSize); 
+
+    // Setup index buffer
+    VkDeviceSize indexSize  = bvh.getIndices().size() * sizeof(uint32_t);
+    m_indexBuffer           = VulkanBuffer(m_vulkanWindow, 
+                                            indexSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_indexStagingBuffer    = VulkanBuffer(m_vulkanWindow, 
+                                            indexSize,
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_indexStagingBuffer.copyData(bvh.getIndices().data(), indexSize); 
+
+    // Setup BVH buffer
+    VkDeviceSize BVHSize    = bvh.getNodes().size() * sizeof(BVHNode);
+    m_BVHBuffer             = VulkanBuffer(m_vulkanWindow, 
+                                            BVHSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_BVHStagingBuffer      = VulkanBuffer(m_vulkanWindow, 
+                                            BVHSize,
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_BVHStagingBuffer.copyData(bvh.getNodes().data(), BVHSize); 
+
+    /////////////////////////////////////////////////////////////////////
+    // Copy staging buffers to device local memory buffers
+    /////////////////////////////////////////////////////////////////////
 
     {
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, computeCommandPool.getCommandPool(), m_computeQueue);
 
         commandBuffer.beginSingleTimeCommandBuffer();
 
-            VkBufferCopy bufferCopyRegion = {
+        // Copy vertex staging buffer to vertex buffer
+
+            VkBufferCopy vertexBufferCopyRegion = {
             .srcOffset = 0,
             .dstOffset = 0,
             .size = vertexSize
@@ -85,7 +126,33 @@ void VulkanRayTracer::initComputePipeline()
         m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
                                             m_vertexStagingBuffer.getBuffer(), 
                                             m_vertexBuffer.getBuffer(), 
-                                            1, &bufferCopyRegion);
+                                            1, &vertexBufferCopyRegion);
+
+        // Copy index staging buffer to index buffer
+
+            VkBufferCopy indexBufferCopyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = indexSize
+        };
+
+        m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
+                                            m_indexStagingBuffer.getBuffer(), 
+                                            m_indexBuffer.getBuffer(), 
+                                            1, &indexBufferCopyRegion);
+
+        // Copy BVH staging buffer to BVH buffer
+
+            VkBufferCopy BVHBufferCopyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = BVHSize
+        };
+
+        m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
+                                            m_BVHStagingBuffer.getBuffer(), 
+                                            m_BVHBuffer.getBuffer(), 
+                                            1, &BVHBufferCopyRegion);
 
         VkMemoryBarrier memoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -107,152 +174,96 @@ void VulkanRayTracer::initComputePipeline()
         commandBuffer.endSubmitAndWait();
     }
 
-
-    // std::vector<Triangle> triangles;
-
-    // for (const tinyobj::shape_t& objShape : objShapes) 
-    // {
-    //     for (size_t i = 0; i < objShape.mesh.indices.size(); i += 3) 
-    //     {
-    //         Triangle triangle;
-    //         triangle.v0 = glm::vec3(
-    //             objVertices[objShape.mesh.indices[i].vertex_index * 3],
-    //             objVertices[objShape.mesh.indices[i].vertex_index * 3 + 1],
-    //             objVertices[objShape.mesh.indices[i].vertex_index * 3 + 2]
-    //         );
-    //         triangle.v1 = glm::vec3(
-    //             objVertices[objShape.mesh.indices[i + 1].vertex_index * 3],
-    //             objVertices[objShape.mesh.indices[i + 1].vertex_index * 3 + 1],
-    //             objVertices[objShape.mesh.indices[i + 1].vertex_index * 3 + 2]
-    //         );
-    //         triangle.v2 = glm::vec3(
-    //             objVertices[objShape.mesh.indices[i + 2].vertex_index * 3],
-    //             objVertices[objShape.mesh.indices[i + 2].vertex_index * 3 + 1],
-    //             objVertices[objShape.mesh.indices[i + 2].vertex_index * 3 + 2]
-    //         );
-
-    //         triangles.push_back(triangle);
-    //     }
-    // }
-
     /////////////////////////////////////////////////////////////////////
-    // Create image and image view
+    // Create image
     /////////////////////////////////////////////////////////////////////
 
-    VkImageCreateInfo imageInfo 
-    {
-        .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .pNext         = nullptr,
-        .flags         = 0, 
-        .imageType     = VK_IMAGE_TYPE_2D,
-        .format        = VK_FORMAT_R32G32B32A32_SFLOAT,  // 4-component float format
-        .extent        = { render_width, render_height, 1 },
-        .mipLevels     = 1,
-        .arrayLayers   = 1,
-        .samples       = VK_SAMPLE_COUNT_1_BIT,
-        .tiling        = VK_IMAGE_TILING_OPTIMAL,
-        .usage         = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-        .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices   = nullptr,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
-    };
-
-    result = m_deviceFunctions->vkCreateImage(dev, &imageInfo, nullptr, &m_storageImage);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create image: %d", result);
-
-    VkMemoryRequirements storageImageMemoryRequirements;
-    m_deviceFunctions->vkGetImageMemoryRequirements(dev, m_storageImage, &storageImageMemoryRequirements);
-    
-    VkMemoryAllocateInfo allocInfo 
-    {
-        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext           = nullptr,
-        .allocationSize  = storageImageMemoryRequirements.size,
-        .memoryTypeIndex = m_vulkanWindow->deviceLocalMemoryIndex()
-    };    
-    
-    result = m_deviceFunctions->vkAllocateMemory(dev, &allocInfo, nullptr, &m_storageImageMemory);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to allocate image memory: %d", result);
-    
-    m_deviceFunctions->vkBindImageMemory(dev, m_storageImage, m_storageImageMemory, 0);
-
-    VkImageViewCreateInfo viewInfo 
-    {
-        .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext            = nullptr,
-        .flags            = 0,
-        .image            = m_storageImage,
-        .viewType         = VK_IMAGE_VIEW_TYPE_2D,
-        .format           = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .components       = {}, // Identity mapping (R->R, G->G, etc.)
-        .subresourceRange = {
-            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel   = 0,
-            .levelCount     = 1,
-            .baseArrayLayer = 0,
-            .layerCount     = 1
-        }
-    };    
-
-    result = m_deviceFunctions->vkCreateImageView(dev, &viewInfo, nullptr, &m_storageImageView);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create image view: %d", result);
+    m_storageImage = VulkanImage(m_vulkanWindow, 
+                                    render_width, render_height, 
+                                    VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                    m_vulkanWindow->deviceLocalMemoryIndex());
 
     /////////////////////////////////////////////////////////////////////
     // Set up descriptor set and its layout
     /////////////////////////////////////////////////////////////////////
 
-    VkDescriptorPoolSize descPoolSizes[]
+    VkDescriptorPoolSize descriptorPoolSizes[]
     {
         {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1  
+            .descriptorCount = 1  // For the storage image
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 3  // For vertex, index, and BVH buffers
         }
     };
 
-    VkDescriptorPoolCreateInfo descPoolInfo 
-    {
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .maxSets = 1,
-        .poolSizeCount = 1,
-        .pPoolSizes = descPoolSizes
+        .maxSets = 1,              // Still one descriptor set
+        .poolSizeCount = 2,        // Two types: image and buffer
+        .pPoolSizes = descriptorPoolSizes
     };
 
-    result = m_deviceFunctions->vkCreateDescriptorPool(dev, &descPoolInfo, nullptr, &m_descriptorPool);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create descriptor pool: %d", result);
-
-    VkDescriptorSetLayoutBinding layoutBinding[] 
+    m_result = m_deviceFunctions->vkCreateDescriptorPool(m_device, &descriptorPoolCreateInfo, nullptr, &m_descriptorPool);
+    if (m_result != VK_SUCCESS)
     {
-        {
+        qWarning("Failed to create descriptor pool (error code: %d)", m_result);
+        return;
+    }
+
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[] = {
+        {   // Binding 0: Storage Image
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
             .pImmutableSamplers = nullptr
         },
+        {   // Binding 1: Vertex Buffer (SSBO)
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        {   // Binding 2: Index Buffer (SSBO)
+            .binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        {   // Binding 3: BVH Buffer (SSBO)
+            .binding = 3,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        }
     };
 
-    VkDescriptorSetLayoutCreateInfo descLayoutInfo 
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo 
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 1,
-        .pBindings = layoutBinding
+        .bindingCount = 4,
+        .pBindings = descriptorSetLayoutBinding
     };
 
-    result = m_deviceFunctions->vkCreateDescriptorSetLayout(dev, &descLayoutInfo, nullptr, &m_descriptorSetLayout);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create descriptor set layout: %d", result);
-
-    VkDescriptorSetAllocateInfo descSetAllocInfo 
+    m_result = m_deviceFunctions->vkCreateDescriptorSetLayout(m_device, &descriptorSetLayoutCreateInfo, nullptr, &m_descriptorSetLayout);
+    if (m_result != VK_SUCCESS)
     {
+        qWarning("Failed to create descriptor set layout (error code: %d)", m_result);
+        return;
+    }
+
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo 
+    {   
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = nullptr,
         .descriptorPool = m_descriptorPool,
@@ -260,15 +271,37 @@ void VulkanRayTracer::initComputePipeline()
         .pSetLayouts = &m_descriptorSetLayout
     };
 
-    result = m_deviceFunctions->vkAllocateDescriptorSets(dev, &descSetAllocInfo, &m_descriptorSet);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to allocate descriptor set: %d", result);
-    
-    VkDescriptorImageInfo descImageInfo 
+    m_result = m_deviceFunctions->vkAllocateDescriptorSets(m_device, &descriptorSetAllocateInfo, &m_descriptorSet);
+    if (m_result != VK_SUCCESS)
     {
+        qWarning("Failed to allocate descriptor set (error code: %d)", m_result);
+        return;
+    }
+    
+    // Storage Image Info
+    VkDescriptorImageInfo descriptorImageInfo = {
         .sampler = VK_NULL_HANDLE,
-        .imageView = m_storageImageView,
+        .imageView = m_storageImage.getImageView(),
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+    };
+
+    // SSBO Info for Vertex, Index, and BVH Buffers
+    VkDescriptorBufferInfo vertexBufferInfo = {
+        .buffer = m_vertexBuffer.getBuffer(),
+        .offset = 0,
+        .range = vertexSize
+    };
+
+    VkDescriptorBufferInfo indexBufferInfo = {
+        .buffer = m_indexBuffer.getBuffer(),
+        .offset = 0,
+        .range = indexSize
+    };
+
+    VkDescriptorBufferInfo BVHBufferInfo = {
+        .buffer = m_BVHBuffer.getBuffer(),
+        .offset = 0,
+        .range = BVHSize
     };
 
     VkWriteDescriptorSet storageImageWrite
@@ -276,51 +309,80 @@ void VulkanRayTracer::initComputePipeline()
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
         .dstSet = m_descriptorSet,
-        .dstBinding = 0, // Binding 0 is for storage image
+        .dstBinding = 0,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        .pImageInfo = &descImageInfo,
+        .pImageInfo = &descriptorImageInfo,
         .pBufferInfo = nullptr,
         .pTexelBufferView = nullptr
     };
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite };
-    
-    m_deviceFunctions->vkUpdateDescriptorSets(dev, 1, descriptorWrites, 0, nullptr);
-
-    /////////////////////////////////////////////////////////////////////
-    // Create command buffer
-    /////////////////////////////////////////////////////////////////////
-
-    VkCommandPoolCreateInfo cmdPoolInfo 
+    VkWriteDescriptorSet vertexBufferWrite
     {
-        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext            = nullptr,
-        .flags            = 0,
-        .queueFamilyIndex = computeQueueFamilyIndex
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 1,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &vertexBufferInfo,
+        .pTexelBufferView = nullptr
     };
+
+    VkWriteDescriptorSet indexBufferWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 2,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &indexBufferInfo,
+        .pTexelBufferView = nullptr
+    };
+
+    VkWriteDescriptorSet BVHBufferWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 3,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &BVHBufferInfo,
+        .pTexelBufferView = nullptr
+    };
+
+
+    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , vertexBufferWrite , indexBufferWrite , BVHBufferWrite };
     
-    VkCommandPool cmdPool;
+    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 4, descriptorWrites, 0, nullptr);
 
-    result = m_deviceFunctions->vkCreateCommandPool(dev, &cmdPoolInfo, nullptr, &cmdPool);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create command pool: %d", result);
+    /////////////////////////////////////////////////////////////////////
+    // Compute pipeline setup
+    /////////////////////////////////////////////////////////////////////
 
-    VkShaderModule rayTraceModule = m_vulkanWindow->createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
+    VkShaderModule computeShaderModule = m_vulkanWindow->createShaderModule(QStringLiteral(":/raytrace_comp.spv"));
 
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfo 
+    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo 
     {
         .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext               = nullptr,
         .flags               = 0,                
         .stage               = VK_SHADER_STAGE_COMPUTE_BIT,
-        .module              = rayTraceModule,
+        .module              = computeShaderModule,
         .pName               = "main",
         .pSpecializationInfo = nullptr            
     };
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo 
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo 
     {
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext                  = nullptr,
@@ -331,147 +393,98 @@ void VulkanRayTracer::initComputePipeline()
         .pPushConstantRanges    = nullptr
     };
     
-    result = m_deviceFunctions->vkCreatePipelineLayout(dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create pipeline layout: %d", result);
+    m_result = m_deviceFunctions->vkCreatePipelineLayout(m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
+    if (m_result != VK_SUCCESS)
+        qDebug("Failed to create pipeline layout: %d", m_result);
 
-    VkComputePipelineCreateInfo pipelineCreateInfo 
+    VkComputePipelineCreateInfo computePipelineCreateInfo 
     {
         .sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext              = nullptr,
         .flags              = 0,
-        .stage              = shaderStageCreateInfo,
+        .stage              = pipelineShaderStageCreateInfo,
         .layout             = m_pipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex  = -1
     };
 
-    result = m_deviceFunctions->vkCreateComputePipelines(dev, m_pipelineCache, 1, &pipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to create compute pipeline: %d", result);
+    m_result = m_deviceFunctions->vkCreateComputePipelines(m_device, m_pipelineCache, 1, &computePipelineCreateInfo, VK_NULL_HANDLE, &m_computePipeline);
+    if (m_result != VK_SUCCESS)
+        qDebug("Failed to create compute pipeline: %d", m_result);
 
-    VkCommandBufferAllocateInfo cmdAllocInfo 
     {
-        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext              = nullptr,
-        .commandPool        = cmdPool,
-        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
-    };
+        VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, computeCommandPool.getCommandPool(), m_computeQueue);
 
-    VkCommandBuffer cmdBuffer;
-    result = m_deviceFunctions->vkAllocateCommandBuffers(dev, &cmdAllocInfo, &cmdBuffer);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to allocate command buffer: %d", result);
+        commandBuffer.beginSingleTimeCommandBuffer();
 
-    VkCommandBufferBeginInfo beginInfo 
-    {
-        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext            = nullptr,
-        .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        .pInheritanceInfo = nullptr
-    };
-    
-    result = m_deviceFunctions->vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to begin command buffer: %d", result);
+        VkImageMemoryBarrier imageMemoryBarrierToGeneral
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_storageImage.getImage(),
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };  
 
-    VkImageMemoryBarrier imageMemoryBarrierToGeneral
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_storageImage,
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };  
+        m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr, 
+        1, &imageMemoryBarrierToGeneral);   
 
-    m_deviceFunctions->vkCmdPipelineBarrier(cmdBuffer,
-    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-    0,
-    0, nullptr,
-    0, nullptr, 
-    1, &imageMemoryBarrierToGeneral);   
+        m_deviceFunctions->vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
 
-    m_deviceFunctions->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+        m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-    m_deviceFunctions->vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+        m_deviceFunctions->vkCmdDispatch(commandBuffer.getCommandBuffer(), (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+                    (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
-    m_deviceFunctions->vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
-                (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
+        VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_storageImage.getImage(),
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };  
 
-    VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_storageImage,
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };  
+        m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr, 
+        1, &imageMemoryBarrierToTransferSrc);   
 
-    m_deviceFunctions->vkCmdPipelineBarrier(cmdBuffer,
-    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    0,
-    0, nullptr,
-    0, nullptr, 
-    1, &imageMemoryBarrierToTransferSrc);   
-
-    result = m_deviceFunctions->vkEndCommandBuffer(cmdBuffer);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to end command buffer: %d", result);
-
-    VkSubmitInfo submitInfo 
-    {
-        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext                = nullptr,
-        .waitSemaphoreCount   = 0,
-        .pWaitSemaphores      = nullptr,
-        .pWaitDstStageMask    = nullptr,
-        .commandBufferCount   = 1,
-        .pCommandBuffers      = &cmdBuffer,
-        .signalSemaphoreCount = 0,
-        .pSignalSemaphores    = nullptr
-    };    
-
-    result = m_deviceFunctions->vkQueueSubmit(m_computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to submit command buffer to compute queue: %d", result);
-
-    result = m_deviceFunctions->vkQueueWaitIdle(m_computeQueue);
-    if (result != VK_SUCCESS)
-        qDebug("Failed to wait for compute queue: %d", result);
-}
-
-VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
-    : m_vulkanWindow(w)
-{
-    
+        commandBuffer.endSubmitAndWait();
+    }
 }
 
 VkImage VulkanRayTracer::getStorageImage()
 {
-    return m_storageImage;
+    return m_storageImage.getImage();
 }

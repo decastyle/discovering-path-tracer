@@ -5,7 +5,8 @@
 
 class VulkanWindow;
 
-class VulkanCommandPool {
+class VulkanCommandPool 
+{
 public:
     VulkanCommandPool() = default;
     VulkanCommandPool(VulkanWindow* vulkanWindow, uint32_t queueFamilyIndex);

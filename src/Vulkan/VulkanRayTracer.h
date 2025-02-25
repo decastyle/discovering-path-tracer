@@ -49,6 +49,6 @@ private:
     VkQueue m_computeQueue = VK_NULL_HANDLE;
 
     VkDevice m_device = VK_NULL_HANDLE;
-    VkResult m_result{};
+    VkResult m_result = VK_NOT_READY;
     QVulkanDeviceFunctions* m_deviceFunctions = nullptr;
 };

@@ -8,6 +8,13 @@
 
 #include "VulkanWindow.h"
 
+struct PushConstants
+{
+    uint32_t sample_batch;
+};
+
+PushConstants pushConstants;
+
 static const uint64_t render_width     = 1024;
 static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
@@ -412,6 +419,15 @@ void VulkanRayTracer::initComputePipeline()
     if (m_result != VK_SUCCESS)
         qDebug("Failed to create compute pipeline: %d", m_result);
 
+    // For convenience
+    // {
+    //     VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, computeCommandPool.getCommandPool(), m_computeQueue);
+
+    //     commandBuffer.beginSingleTimeCommandBuffer();
+
+    //     commandBuffer.endSubmitAndWait();
+    // }
+
     {
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, computeCommandPool.getCommandPool(), m_computeQueue);
 
@@ -422,8 +438,38 @@ void VulkanRayTracer::initComputePipeline()
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = 0,
-            .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = 0,
             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_storageImage.getImage(),
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };  
+
+        commandBuffer.endSubmitAndWait();
+    }
+
+    const uint32_t NUM_SAMPLE_BATCHES = 32;
+    for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
+    {
+        VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, computeCommandPool.getCommandPool(), m_computeQueue);
+
+        commandBuffer.beginSingleTimeCommandBuffer();
+
+        VkImageMemoryBarrier imageMemoryBarrierToGeneral
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             .newLayout = VK_IMAGE_LAYOUT_GENERAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -449,6 +495,15 @@ void VulkanRayTracer::initComputePipeline()
 
         m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
+        // Push push constants:
+        pushConstants.sample_batch = sampleBatch;
+        vkCmdPushConstants(commandBuffer.getCommandBuffer(),
+                        m_pipelineLayout,
+                        VK_SHADER_STAGE_COMPUTE_BIT,          // Stage flags
+                        0,                                       // Offset
+                        sizeof(PushConstants),                   // Size in bytes
+                        &pushConstants);                         // Data
+
         m_deviceFunctions->vkCmdDispatch(commandBuffer.getCommandBuffer(), (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
                     (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
@@ -456,7 +511,7 @@ void VulkanRayTracer::initComputePipeline()
         {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
-            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
             .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,

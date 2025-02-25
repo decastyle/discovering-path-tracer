@@ -1,5 +1,10 @@
 #version 460
 
+struct PushConstants
+{
+    uint sample_batch;
+};
+
 struct BVHNode 
 {
     vec4 minBounds; // xyz = min, w = leftChild (child index or -1 to flag as leaf)

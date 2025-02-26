@@ -34,7 +34,6 @@ int main(int argc, char *argv[])
     if (!instance.create()) 
     {
         qWarning("Failed to create Vulkan instance (error code: %d)", instance.errorCode());
-        return;
     }
 
     VulkanWindow* vulkanWindow = new VulkanWindow;

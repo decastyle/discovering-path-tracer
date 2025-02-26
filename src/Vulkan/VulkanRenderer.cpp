@@ -106,15 +106,17 @@ VulkanRenderer::VulkanRenderer(VulkanWindow *vulkanWindow)
 void VulkanRenderer::initResources()
 {
     m_device = m_vulkanWindow->device();
-    qDebug() << m_device;
     m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_device);
-    m_vulkanWindow->getVulkanRayTracer()->deviceReady();
 
-    uint32_t graphicsQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
-    if (graphicsQueueFamilyIndex == UINT32_MAX)
+    m_graphicsQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
+    if (m_graphicsQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable graphics queue family found!");
-    m_deviceFunctions->vkGetDeviceQueue(m_device, graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
-    m_graphicsCommandPool = VulkanCommandPool(m_vulkanWindow, graphicsQueueFamilyIndex);
+    m_computeQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
+    if (m_computeQueueFamilyIndex == UINT32_MAX)
+        qDebug("No suitable compute queue family found!");
+
+    m_deviceFunctions->vkGetDeviceQueue(m_device, m_graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
+    m_graphicsCommandPool = VulkanCommandPool(m_vulkanWindow, m_graphicsQueueFamilyIndex);
 
     const int concurrentFrameCount = m_vulkanWindow->concurrentFrameCount(); 
     qDebug() << "Concurrent frame count:" << concurrentFrameCount;
@@ -159,7 +161,7 @@ void VulkanRenderer::initResources()
     }
 
     /////////////////////////////////////////////////////////////////////
-    // Create image and image view
+    // Create image
     /////////////////////////////////////////////////////////////////////
 
     m_renderImage = VulkanImage(m_vulkanWindow, 
@@ -167,101 +169,103 @@ void VulkanRenderer::initResources()
                                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 
                                 m_vulkanWindow->deviceLocalMemoryIndex());
 
-    VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
-
-    commandBuffer.beginSingleTimeCommandBuffer();
-
-    VkImageMemoryBarrier imageMemoryBarrierToTransferDst
     {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_renderImage.getImage(),
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };  
+        VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
 
-    m_deviceFunctions->vkCmdPipelineBarrier(
-    commandBuffer.getCommandBuffer(),
-    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    0,
-    0, nullptr,
-    0, nullptr, 
-    1, &imageMemoryBarrierToTransferDst);   
+        commandBuffer.beginSingleTimeCommandBuffer();
 
-    VkImageCopy bufferCopyRegion
-    {
-        .srcSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .srcOffset = {0, 0, 0},
-        .dstSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .dstOffset = {0, 0, 0},
-        .extent = {
-            .width = render_width,
-            .height = render_height,
-            .depth = 1
-        }
-    };
+        VkImageMemoryBarrier imageMemoryBarrierToShaderRead
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m_renderImage.getImage(),
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };  
 
-    VkImage storageImage = m_vulkanWindow->getVulkanRayTracer()->getStorageImage(); 
+        m_deviceFunctions->vkCmdPipelineBarrier(
+        commandBuffer.getCommandBuffer(),
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr, 
+        1, &imageMemoryBarrierToShaderRead);   
 
-    m_deviceFunctions->vkCmdCopyImage(
-        commandBuffer.getCommandBuffer(), 
-        storageImage, 
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-        m_renderImage.getImage(), 
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-        1, &bufferCopyRegion);
+        // VkImageCopy bufferCopyRegion
+        // {
+        //     .srcSubresource = {
+        //         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        //         .mipLevel = 0,
+        //         .baseArrayLayer = 0,
+        //         .layerCount = 1
+        //     },
+        //     .srcOffset = {0, 0, 0},
+        //     .dstSubresource = {
+        //         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        //         .mipLevel = 0,
+        //         .baseArrayLayer = 0,
+        //         .layerCount = 1
+        //     },
+        //     .dstOffset = {0, 0, 0},
+        //     .extent = {
+        //         .width = render_width,
+        //         .height = render_height,
+        //         .depth = 1
+        //     }
+        // };
 
-    VkImageMemoryBarrier imageMemoryBarrierToShaderRead
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_renderImage.getImage(),
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };  
+        // VkImage storageImage = m_vulkanWindow->getVulkanRayTracer()->getStorageImage(); 
 
-    m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-    0,
-    0, nullptr,
-    0, nullptr, 
-    1, &imageMemoryBarrierToShaderRead);   
+        // m_deviceFunctions->vkCmdCopyImage(
+        //     commandBuffer.getCommandBuffer(), 
+        //     storageImage, 
+        //     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        //     m_renderImage.getImage(), 
+        //     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        //     1, &bufferCopyRegion);
 
-    commandBuffer.endSubmitAndWait();
+        // VkImageMemoryBarrier imageMemoryBarrierToShaderRead
+        // {
+        //     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        //     .pNext = nullptr,
+        //     .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        //     .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        //     .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        //     .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        //     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        //     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        //     .image = m_renderImage.getImage(),
+        //     .subresourceRange = {
+        //         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        //         .baseMipLevel = 0,
+        //         .levelCount = 1,
+        //         .baseArrayLayer = 0,
+        //         .layerCount = 1
+        //     }
+        // };  
+
+        // m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
+        // VK_PIPELINE_STAGE_TRANSFER_BIT,
+        // VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        // 0,
+        // 0, nullptr,
+        // 0, nullptr, 
+        // 1, &imageMemoryBarrierToShaderRead);   
+
+        commandBuffer.endSubmitAndWait();
+    }
 
     /////////////////////////////////////////////////////////////////////
     // Pipeline shader stages
@@ -693,6 +697,20 @@ void VulkanRenderer::initResources()
         m_deviceFunctions->vkDestroyShaderModule(m_device, vertexShaderModule, nullptr);
     if (fragmentShaderModule)
         m_deviceFunctions->vkDestroyShaderModule(m_device, fragmentShaderModule, nullptr);
+
+
+
+
+
+
+
+
+
+
+
+
+
+    m_vulkanWindow->getVulkanRayTracer()->deviceReady();
 }
 
 void VulkanRenderer::initSwapChainResources()
@@ -899,3 +917,101 @@ void VulkanRenderer::startNextFrame()
     m_vulkanWindow->requestUpdate(); 
 }
 
+void VulkanRenderer::copyStorageImage()
+{
+    VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
+
+    commandBuffer.beginSingleTimeCommandBuffer();
+
+    VkImage storageImage = m_vulkanWindow->getVulkanRayTracer()->getStorageImage(); 
+
+    VkImageMemoryBarrier imageMemoryBarrierToTransferDst
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_renderImage.getImage(),
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+    m_deviceFunctions->vkCmdPipelineBarrier(
+    commandBuffer.getCommandBuffer(),
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToTransferDst);   
+
+    VkImageCopy imageCopyRegion
+    {
+        .srcSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .srcOffset = {0, 0, 0},
+        .dstSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .dstOffset = {0, 0, 0},
+        .extent = {
+            .width = render_width,
+            .height = render_height,
+            .depth = 1
+        }
+    };
+
+    m_deviceFunctions->vkCmdCopyImage(
+        commandBuffer.getCommandBuffer(), 
+        storageImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        m_renderImage.getImage(), 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        1, &imageCopyRegion);
+
+    VkImageMemoryBarrier imageMemoryBarrierToShaderRead
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_renderImage.getImage(),
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };  
+
+    m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    0,
+    0, nullptr,
+    0, nullptr, 
+    1, &imageMemoryBarrierToShaderRead);   
+
+    commandBuffer.endSubmitAndWait();
+}

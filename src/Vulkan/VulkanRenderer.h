@@ -25,6 +25,8 @@ public:
 
     qint64 getDeltaTimeNs() { return m_renderTimeNs; }
 
+    void copyStorageImage();
+
 protected:
     VulkanWindow* m_vulkanWindow = nullptr;
 
@@ -39,6 +41,9 @@ protected:
 
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VulkanCommandPool m_graphicsCommandPool{};
+
+    uint32_t m_graphicsQueueFamilyIndex{};
+    uint32_t m_computeQueueFamilyIndex{};
 
     QElapsedTimer m_renderTimer{};
     qint64 m_renderTimeNs{};

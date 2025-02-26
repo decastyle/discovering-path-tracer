@@ -41,6 +41,11 @@ int main(int argc, char *argv[])
     /*
     QVulkanWindow is a Vulkan-capable QWindow that manages a Vulkan device, a graphics queue, a command pool and buffer, a depth-stencil image and a double-buffered FIFO swapchain, while taking care of correct behavior when it comes to events like resize, special situations like not having a device queue supporting both graphics and presentation, device lost scenarios, and additional functionality like reading the rendered content back. Conceptually it is the counterpart of QOpenGLWindow in the Vulkan world.
     */
+
+    vulkanWindow->setFlags(QVulkanWindow::PersistentResources);
+    /*
+    Ensures no graphics resources are released when the window becomes unexposed. The default behavior is to release everything, and reinitialize later when becoming visible again.
+    */
     
     vulkanWindow->setVulkanInstance(&instance);
 

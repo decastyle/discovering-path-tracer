@@ -16,7 +16,7 @@ public:
     VulkanRayTracer(VulkanWindow* w);
 
     VkImage getStorageImage() { return m_storageImage.getImage(); }
-    void deviceReady();
+    void initRayTracer();
 
 private:
     void initComputePipeline();
@@ -53,7 +53,7 @@ private:
     uint32_t m_computeQueueFamilyIndex{};
 
     VulkanCommandPool m_computeCommandPool{};
-
+    
     VkDevice m_device = VK_NULL_HANDLE;
     VkResult m_result = VK_NOT_READY;
     QVulkanDeviceFunctions* m_deviceFunctions = nullptr;

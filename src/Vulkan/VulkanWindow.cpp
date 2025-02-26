@@ -149,19 +149,6 @@ QVulkanWindowRenderer *VulkanWindow::createRenderer()
     return m_vulkanRenderer;
 }
 
-// void VulkanWindow::deviceCreated()
-// {
-//     // VkDevice device = this->device();
-
-//     // QVulkanDeviceFunctions *deviceFunctions = this->vulkanInstance()->deviceFunctions(device);
-
-//     // uint32_t computeQueueFamilyIndex = findQueueFamilyIndex(this->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
-//     // if (computeQueueFamilyIndex == UINT32_MAX)
-//     //     qDebug("No suitable compute queue family found!");
-
-//     // deviceFunctions->vkGetDeviceQueue(device, computeQueueFamilyIndex, 0, &m_computeQueue);
-// }
-
 uint32_t VulkanWindow::findQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQueueFlagBits queueFlagBit)
 {
     uint32_t queueFamilyCount = 0;

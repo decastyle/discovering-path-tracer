@@ -23,11 +23,9 @@ static const uint32_t workgroup_height = 16;
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
     : m_vulkanWindow(w){}
 
-// TODO: because VkDevice is only valid between VulkanRenderer::initResources() and VulkanRenderer::releaseResources(), RayTracer may fault while doing work on separate thread.
-// Possible solution is to create separate device, but then VkCmdCopyImage is no longer possible between two separate VkDevice
-void VulkanRayTracer::deviceReady()
+void VulkanRayTracer::initRayTracer()
 {
-    initComputePipeline(); // TODO: Override QVulkanWindowRenderer::releaseResources() helper function to avoid destroying device on minimization
+    initComputePipeline(); 
 }
 
 void VulkanRayTracer::initComputePipeline()
@@ -38,6 +36,7 @@ void VulkanRayTracer::initComputePipeline()
     m_graphicsQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (m_graphicsQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable graphics queue family found!");
+
     m_computeQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (m_computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
@@ -429,15 +428,6 @@ void VulkanRayTracer::initComputePipeline()
     if (m_result != VK_SUCCESS)
         qDebug("Failed to create compute pipeline: %d", m_result);
 
-    // For convenience
-    // {
-    //     VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
-
-    //     commandBuffer.beginSingleTimeCommandBuffer();
-
-    //     commandBuffer.endSubmitAndWait();
-    // }
-
     {
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
 
@@ -451,8 +441,8 @@ void VulkanRayTracer::initComputePipeline()
             .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .srcQueueFamilyIndex = m_graphicsQueueFamilyIndex,
-            .dstQueueFamilyIndex = m_computeQueueFamilyIndex,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = m_storageImage.getImage(),
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -474,7 +464,11 @@ void VulkanRayTracer::initComputePipeline()
         commandBuffer.endSubmitAndWait();
     }
 
-    const uint32_t NUM_SAMPLE_BATCHES = 1;
+    /////////////////////////////////////////////////////////////////////
+    // Main loop
+    /////////////////////////////////////////////////////////////////////
+
+    const uint32_t NUM_SAMPLE_BATCHES = 64;
     for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
     {
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
@@ -522,7 +516,8 @@ void VulkanRayTracer::initComputePipeline()
                         sizeof(PushConstants),
                         &pushConstants);               
 
-        m_deviceFunctions->vkCmdDispatch(commandBuffer.getCommandBuffer(), (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+        m_deviceFunctions->vkCmdDispatch(commandBuffer.getCommandBuffer(),
+                    (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
                     (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
         VkImageMemoryBarrier imageMemoryBarrierToTransferSrc

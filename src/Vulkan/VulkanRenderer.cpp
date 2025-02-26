@@ -111,6 +111,7 @@ void VulkanRenderer::initResources()
     m_graphicsQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_GRAPHICS_BIT);
     if (m_graphicsQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable graphics queue family found!");
+        
     m_computeQueueFamilyIndex = m_vulkanWindow->findQueueFamilyIndex(m_vulkanWindow->physicalDevice(), VK_QUEUE_COMPUTE_BIT);
     if (m_computeQueueFamilyIndex == UINT32_MAX)
         qDebug("No suitable compute queue family found!");
@@ -698,19 +699,7 @@ void VulkanRenderer::initResources()
     if (fragmentShaderModule)
         m_deviceFunctions->vkDestroyShaderModule(m_device, fragmentShaderModule, nullptr);
 
-
-
-
-
-
-
-
-
-
-
-
-
-    m_vulkanWindow->getVulkanRayTracer()->deviceReady();
+    m_vulkanWindow->getVulkanRayTracer()->initRayTracer();
 }
 
 void VulkanRenderer::initSwapChainResources()
@@ -729,27 +718,32 @@ void VulkanRenderer::releaseResources()
 {
     qDebug("releaseResources");
 
-    if (m_pipeline) {
+    if (m_pipeline) 
+    {
         m_deviceFunctions->vkDestroyPipeline(m_device, m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;
     }
 
-    if (m_pipelineLayout) {
+    if (m_pipelineLayout) 
+    {
         m_deviceFunctions->vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
         m_pipelineLayout = VK_NULL_HANDLE;
     }
 
-    if (m_pipelineCache) {
+    if (m_pipelineCache) 
+    {
         m_deviceFunctions->vkDestroyPipelineCache(m_device, m_pipelineCache, nullptr);
         m_pipelineCache = VK_NULL_HANDLE;
     }
 
-    if (m_descriptorSetLayout) {
+    if (m_descriptorSetLayout) 
+    {
         m_deviceFunctions->vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
         m_descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    if (m_descriptorPool) {
+    if (m_descriptorPool) 
+    {
         m_deviceFunctions->vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
         m_descriptorPool = VK_NULL_HANDLE;
     }

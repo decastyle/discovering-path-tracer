@@ -164,22 +164,22 @@ void VulkanImage::createSampler()
 
 void VulkanImage::cleanup()
 {
-    if (m_sampler)
+    if (m_sampler != VK_NULL_HANDLE)
     {
         m_deviceFunctions->vkDestroySampler(m_vulkanWindow->device(), m_sampler, nullptr);
         m_sampler = VK_NULL_HANDLE;
     }
-    if (m_imageView) 
+    if (m_imageView != VK_NULL_HANDLE) 
     {
         m_deviceFunctions->vkDestroyImageView(m_vulkanWindow->device(), m_imageView, nullptr);
         m_imageView = VK_NULL_HANDLE;
     }
-    if (m_memory) 
+    if (m_memory != VK_NULL_HANDLE) 
     {
         m_deviceFunctions->vkFreeMemory(m_vulkanWindow->device(), m_memory, nullptr);
         m_memory = VK_NULL_HANDLE;
     }
-    if (m_image) 
+    if (m_image != VK_NULL_HANDLE) 
     {
         m_deviceFunctions->vkDestroyImage(m_vulkanWindow->device(), m_image, nullptr);
         m_image = VK_NULL_HANDLE;

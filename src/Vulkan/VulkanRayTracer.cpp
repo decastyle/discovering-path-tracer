@@ -550,7 +550,9 @@ void VulkanRayTracer::initComputePipeline()
 
         commandBuffer.endSubmitAndWait();
 
-        m_vulkanWindow->getVulkanRenderer()->copyStorageImage();
+        VkFence fence = commandBuffer.getFence();
+
+        m_vulkanWindow->getVulkanRenderer()->copyStorageImage(fence);
 
         qDebug("Storage image copied! sampleBatch: %i", sampleBatch);
     }

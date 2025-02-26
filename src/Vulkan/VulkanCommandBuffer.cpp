@@ -9,6 +9,7 @@ VulkanCommandBuffer::VulkanCommandBuffer(VulkanWindow* vulkanWindow, VkCommandPo
     m_deviceFunctions = m_vulkanWindow->vulkanInstance()->deviceFunctions(m_vulkanWindow->device());
 
     createCommandBuffer();
+    createFence();
 }
 
 VulkanCommandBuffer::~VulkanCommandBuffer()
@@ -35,12 +36,34 @@ void VulkanCommandBuffer::createCommandBuffer()
     }
 }
 
+void VulkanCommandBuffer::createFence()
+{
+    VkFenceCreateInfo fenceCreateInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0
+    };
+
+    m_result = m_deviceFunctions->vkCreateFence(m_vulkanWindow->device(), &fenceCreateInfo, nullptr, &m_fence);
+    if (m_result != VK_SUCCESS)
+    {
+        qWarning("Failed to create fence (error code: %d)", m_result);
+        return;
+    }
+}
+
 void VulkanCommandBuffer::cleanup()
 {
-    if (m_commandBuffer)
+    if (m_commandBuffer != VK_NULL_HANDLE)
     {
         m_deviceFunctions->vkFreeCommandBuffers(m_vulkanWindow->device(), m_commandPool, 1, &m_commandBuffer);
         m_commandBuffer = VK_NULL_HANDLE;
+    }
+    if (m_fence != VK_NULL_HANDLE)
+    {
+        m_deviceFunctions->vkDestroyFence(m_vulkanWindow->device(), m_fence, nullptr);
+        m_fence = VK_NULL_HANDLE;
     }
 }
 
@@ -100,17 +123,24 @@ void VulkanCommandBuffer::endSubmitAndWait()
         .pSignalSemaphores    = nullptr
     };   
 
-    m_result = m_deviceFunctions->vkQueueSubmit(m_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    m_result = m_deviceFunctions->vkResetFences(m_vulkanWindow->device(), 1, &m_fence);
+    if (m_result != VK_SUCCESS)
+    {
+        qWarning("Failed to reset fence (error code: %d)", m_result);
+        return;
+    }
+
+    m_result = m_deviceFunctions->vkQueueSubmit(m_queue, 1, &submitInfo, m_fence);
     if (m_result != VK_SUCCESS)
     {
         qWarning("Failed to submit command buffer to queue (error code: %d)", m_result);
         return;
     }
 
-    m_result = m_deviceFunctions->vkQueueWaitIdle(m_queue);
+    m_result = m_deviceFunctions->vkWaitForFences(m_vulkanWindow->device(), 1, &m_fence, VK_TRUE, UINT64_MAX);
     if (m_result != VK_SUCCESS)
     {
-        qWarning("Failed to wait for queue (error code: %d)", m_result);
+        qWarning("Failed to wait for fence (error code: %d)", m_result);
         return;
     }
 }

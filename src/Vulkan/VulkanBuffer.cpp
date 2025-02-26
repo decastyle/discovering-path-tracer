@@ -95,12 +95,12 @@ void VulkanBuffer::allocateMemory()
 
 void VulkanBuffer::cleanup()
 {
-    if (m_memory) 
+    if (m_memory != VK_NULL_HANDLE) 
     {
         vkFreeMemory(m_vulkanWindow->device(), m_memory, nullptr);
         m_memory = VK_NULL_HANDLE;
     }
-    if (m_buffer) 
+    if (m_buffer != VK_NULL_HANDLE) 
     {
         vkDestroyBuffer(m_vulkanWindow->device(), m_buffer, nullptr);
         m_buffer = VK_NULL_HANDLE;

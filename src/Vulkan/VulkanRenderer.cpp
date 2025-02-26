@@ -911,8 +911,19 @@ void VulkanRenderer::startNextFrame()
     m_vulkanWindow->requestUpdate(); 
 }
 
-void VulkanRenderer::copyStorageImage()
+void VulkanRenderer::copyStorageImage(VkFence fence)
 {
+    // Wait for the provided fence to signal (ensuring prior work is complete)
+    if (fence != VK_NULL_HANDLE)
+    {
+        VkResult result = m_deviceFunctions->vkWaitForFences(m_vulkanWindow->device(), 1, &fence, VK_TRUE, UINT64_MAX);
+        if (result != VK_SUCCESS)
+        {
+            qWarning("Failed to wait for input fence (error code: %d)", result);
+            return;
+        }
+    }
+
     VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
 
     commandBuffer.beginSingleTimeCommandBuffer();

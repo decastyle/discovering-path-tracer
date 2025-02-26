@@ -59,7 +59,7 @@ void VulkanCommandPool::createCommandPool()
 
 void VulkanCommandPool::cleanup()
 {
-    if (m_commandPool)
+    if (m_commandPool != VK_NULL_HANDLE)
     {
         m_deviceFunctions->vkDestroyCommandPool(m_vulkanWindow->device(), m_commandPool, nullptr);
         m_commandPool = VK_NULL_HANDLE;

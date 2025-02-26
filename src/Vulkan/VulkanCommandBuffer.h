@@ -17,15 +17,19 @@ public:
 
     VkCommandBuffer getCommandBuffer() const { return m_commandBuffer; }
 
+    VkFence getFence() const { return m_fence; }
+
     void destroy() { cleanup(); }
 
 private:
     void createCommandBuffer();
+    void createFence();
     void cleanup();
 
     VulkanWindow* m_vulkanWindow = nullptr;
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
     VkQueue m_queue = VK_NULL_HANDLE;
+    VkFence m_fence = VK_NULL_HANDLE;
 
     VkCommandBuffer m_commandBuffer = VK_NULL_HANDLE;
     bool m_isRecording = false;

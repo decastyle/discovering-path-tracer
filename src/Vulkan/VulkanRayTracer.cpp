@@ -50,7 +50,7 @@ void VulkanRayTracer::initComputePipeline()
 
     tinyobj::ObjReader reader;
 
-    if (!reader.ParseFromFile("../scenes/box.obj")) { // TODO: Better scene loading
+    if (!reader.ParseFromFile("../scenes/Sylveon.obj")) { // TODO: Better scene loading
         qDebug() << "Failed to load .obj: " << reader.Error();
     }
 
@@ -69,7 +69,7 @@ void VulkanRayTracer::initComputePipeline()
     // std::vector<uint32_t> objIndices = { 0, 1, 2 };
 
     BVH bvh(objVertices, objIndices);
-    bvh.printBVH(bvh);
+    // bvh.printBVH(bvh);
 
     /////////////////////////////////////////////////////////////////////
     // Buffer setup

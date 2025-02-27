@@ -468,7 +468,7 @@ void VulkanRayTracer::initComputePipeline()
     // Main loop
     /////////////////////////////////////////////////////////////////////
 
-    const uint32_t NUM_SAMPLE_BATCHES = 64;
+    const uint32_t NUM_SAMPLE_BATCHES = 1024;
     for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
     {
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);

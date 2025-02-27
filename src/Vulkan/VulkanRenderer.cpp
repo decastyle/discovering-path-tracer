@@ -1,6 +1,7 @@
 #include "VulkanRenderer.h"
 #include "VulkanWindow.h"
 #include <QVulkanFunctions>
+#include <thread>
 
 static const uint64_t render_width     = 1024; // TODO: Pass this data dynamically through Qt's GUI
 static const uint64_t render_height    = 1024;
@@ -691,6 +692,16 @@ void VulkanRenderer::initResources()
     }
 
     /////////////////////////////////////////////////////////////////////
+    // Initialize VulkanRayTracer in separate thread
+    /////////////////////////////////////////////////////////////////////
+
+    std::thread rayTracerThread([this]() {
+        m_vulkanWindow->getVulkanRayTracer()->initRayTracer();
+    });
+
+    rayTracerThread.detach();
+
+    /////////////////////////////////////////////////////////////////////
     // Clean up
     /////////////////////////////////////////////////////////////////////
 
@@ -698,8 +709,6 @@ void VulkanRenderer::initResources()
         m_deviceFunctions->vkDestroyShaderModule(m_device, vertexShaderModule, nullptr);
     if (fragmentShaderModule)
         m_deviceFunctions->vkDestroyShaderModule(m_device, fragmentShaderModule, nullptr);
-
-    m_vulkanWindow->getVulkanRayTracer()->initRayTracer();
 }
 
 void VulkanRenderer::initSwapChainResources()
@@ -748,11 +757,11 @@ void VulkanRenderer::releaseResources()
         m_descriptorPool = VK_NULL_HANDLE;
     }
 
-    m_graphicsCommandPool.destroy();
-    m_vertexBuffer.destroy();
-    m_vertexStagingBuffer.destroy();
-    m_uniformBuffer.destroy();
-    m_renderImage.destroy();
+    // m_graphicsCommandPool.destroy();
+    // m_vertexBuffer.destroy();
+    // m_vertexStagingBuffer.destroy();
+    // m_uniformBuffer.destroy();
+    // m_renderImage.destroy();
 }
 
 void VulkanRenderer::startNextFrame()
@@ -903,9 +912,9 @@ void VulkanRenderer::startNextFrame()
     m_deviceFunctions->vkCmdEndRenderPass(commandBuffer);
 
     m_renderTimeNs = m_renderTimer.nsecsElapsed();
-    double fps = 1e9/(static_cast<double>(m_renderTimeNs));
+    // double fps = 1e9/(static_cast<double>(m_renderTimeNs));
 
-    qDebug().nospace() << "Render time: " << (m_renderTimeNs / 1.0e6) << " ms, FPS: " << fps;
+    // qDebug().nospace() << "Render time: " << (m_renderTimeNs / 1.0e6) << " ms, FPS: " << fps;
 
     m_vulkanWindow->frameReady();
     m_vulkanWindow->requestUpdate(); 

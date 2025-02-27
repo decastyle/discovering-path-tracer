@@ -40,7 +40,9 @@ protected:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
+    VkQueue m_computeQueue = VK_NULL_HANDLE;
     VulkanCommandPool m_graphicsCommandPool{};
+    VulkanCommandPool m_computeCommandPool{};
 
     uint32_t m_graphicsQueueFamilyIndex{};
     uint32_t m_computeQueueFamilyIndex{};

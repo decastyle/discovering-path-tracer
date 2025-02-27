@@ -118,7 +118,10 @@ void VulkanRenderer::initResources()
         qDebug("No suitable compute queue family found!");
 
     m_deviceFunctions->vkGetDeviceQueue(m_device, m_graphicsQueueFamilyIndex, 0, &m_graphicsQueue);
+    m_deviceFunctions->vkGetDeviceQueue(m_device, m_computeQueueFamilyIndex, 0, &m_computeQueue);
+
     m_graphicsCommandPool = VulkanCommandPool(m_vulkanWindow, m_graphicsQueueFamilyIndex);
+    m_computeCommandPool = VulkanCommandPool(m_vulkanWindow, m_computeQueueFamilyIndex);
 
     const int concurrentFrameCount = m_vulkanWindow->concurrentFrameCount(); 
     qDebug() << "Concurrent frame count:" << concurrentFrameCount;
@@ -933,7 +936,7 @@ void VulkanRenderer::copyStorageImage(VkFence fence)
         }
     }
 
-    VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
+    VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
 
     commandBuffer.beginSingleTimeCommandBuffer();
 
@@ -943,7 +946,7 @@ void VulkanRenderer::copyStorageImage(VkFence fence)
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
         .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -961,7 +964,7 @@ void VulkanRenderer::copyStorageImage(VkFence fence)
 
     m_deviceFunctions->vkCmdPipelineBarrier(
     commandBuffer.getCommandBuffer(),
-    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
     VK_PIPELINE_STAGE_TRANSFER_BIT,
     0,
     0, nullptr,
@@ -1021,7 +1024,7 @@ void VulkanRenderer::copyStorageImage(VkFence fence)
 
     m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
     VK_PIPELINE_STAGE_TRANSFER_BIT,
-    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
     0,
     0, nullptr,
     0, nullptr, 

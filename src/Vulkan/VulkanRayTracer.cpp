@@ -470,6 +470,11 @@ void VulkanRayTracer::initComputePipeline()
     // Main loop
     /////////////////////////////////////////////////////////////////////
 
+    mainLoop();
+}
+
+void VulkanRayTracer::mainLoop()
+{
     const uint32_t NUM_SAMPLE_BATCHES = 1024;
     for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
     {

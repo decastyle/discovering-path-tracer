@@ -20,6 +20,7 @@ public:
 
 private:
     void initComputePipeline();
+    void mainLoop();
 
     VulkanWindow* m_vulkanWindow = nullptr;
 

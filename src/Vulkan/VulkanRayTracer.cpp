@@ -50,7 +50,7 @@ void VulkanRayTracer::initComputePipeline()
 
     tinyobj::ObjReader reader;
 
-    if (!reader.ParseFromFile("../scenes/Sylveon.obj")) { // TODO: Better scene loading
+    if (!reader.ParseFromFile("../scenes/box.obj")) { // TODO: Better scene loading
         qDebug() << "Failed to load .obj: " << reader.Error();
     }
 
@@ -65,9 +65,11 @@ void VulkanRayTracer::initComputePipeline()
             objIndices.push_back(index.vertex_index);
         }
     }
+    // std::vector<tinyobj::real_t> objVertices = { -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+    // std::vector<uint32_t> objIndices = { 0, 1, 2 };
 
     BVH bvh(objVertices, objIndices);
-    qDebug() << "BVH built with" << bvh.getNodes().size() << "nodes";
+    bvh.printBVH(bvh);
 
     /////////////////////////////////////////////////////////////////////
     // Buffer setup

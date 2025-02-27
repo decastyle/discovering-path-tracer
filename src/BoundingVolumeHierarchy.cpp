@@ -115,3 +115,43 @@ glm::vec3 BVH::getVertex(uint32_t index) const
     uint32_t base = indices[index] * 3;
     return glm::vec3(vertices[base], vertices[base + 1], vertices[base + 2]);
 }
+
+void BVH::printBVH(const BVH& bvh) {
+    // Print number of nodes
+    qDebug() << "BVH built with" << bvh.getNodes().size() << "nodes";
+
+    // Print vertices
+    const auto& vertices = bvh.getVertices();
+    qDebug() << "Vertices (" << vertices.size() / 3 << "total):";
+    for (size_t i = 0; i < vertices.size(); i += 3) {
+        if (i + 2 < vertices.size()) { // Safety check
+            qDebug() << "  Vertex" << (i / 3) << ": (" 
+                     << vertices[i] << "," << vertices[i + 1] << "," << vertices[i + 2] << ")";
+        } else {
+            qDebug() << "  Vertex" << (i / 3) << ": (incomplete)";
+        }
+    }
+
+    // Print indices
+    const auto& indices = bvh.getIndices();
+    qDebug() << "Indices (" << indices.size() / 3 << "triangles):";
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        if (i + 2 < indices.size()) { // Safety check
+            qDebug() << "  Triangle" << (i / 3) << ": (" 
+                     << indices[i] << "," << indices[i + 1] << "," << indices[i + 2] << ")";
+        } else {
+            qDebug() << "  Triangle" << (i / 3) << ": (incomplete)";
+        }
+    }
+
+    const auto& nodes = bvh.getNodes();
+    qDebug() << "Nodes (" << nodes.size() << "total):";
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        const BVHNode& node = nodes[i];
+        qDebug() << "  Node" << i << ":";
+        qDebug() << "    minBounds: (" << node.minBounds.x << "," << node.minBounds.y << ","
+                 << node.minBounds.z << "," << node.minBounds.w << ")";
+        qDebug() << "    maxBounds: (" << node.maxBounds.x << "," << node.maxBounds.y << ","
+                 << node.maxBounds.z << "," << node.maxBounds.w << ")";
+    }
+}

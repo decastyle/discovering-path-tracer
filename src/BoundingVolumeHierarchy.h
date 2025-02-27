@@ -21,6 +21,8 @@ public:
     const std::vector<uint32_t>& getIndices() const { return indices; }
     const std::vector<BVHNode>& getNodes() const { return nodes; }
 
+    void printBVH(const BVH& bvh);
+
 private:
     const std::vector<tinyobj::real_t>& vertices; // Reference vertex data (x, y, z per vertex)
     std::vector<uint32_t> indices;                // Flat index buffer (v0, v1, v2 per triangle)

@@ -476,6 +476,20 @@ void VulkanRayTracer::initComputePipeline()
 void VulkanRayTracer::mainLoop()
 {
     const uint32_t NUM_SAMPLE_BATCHES = 1024;
+
+    // Create a semaphore for signaling compute completion
+    VkSemaphoreCreateInfo semaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0
+    };
+    VkSemaphore computeFinishedSemaphore;
+    VkResult result = m_deviceFunctions->vkCreateSemaphore(m_vulkanWindow->device(), &semaphoreInfo, nullptr, &computeFinishedSemaphore);
+    if (result != VK_SUCCESS) {
+        qWarning("Failed to create semaphore (error code: %d)", result);
+        return;
+    }
+
     for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
     {
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
@@ -555,12 +569,14 @@ void VulkanRayTracer::mainLoop()
         0, nullptr, 
         1, &imageMemoryBarrierToTransferSrc);   
 
-        commandBuffer.endSubmitAndWait();
+        // End recording and submit with the semaphore as a signal
+        commandBuffer.endSubmitAndWait({}, {}, {computeFinishedSemaphore});
 
-        VkFence fence = commandBuffer.getFence();
-
-        m_vulkanWindow->getVulkanRenderer()->copyStorageImage(fence);
+        // Pass the semaphore to copyStorageImage (fence is optional now)
+        m_vulkanWindow->getVulkanRenderer()->copyStorageImage(computeFinishedSemaphore);
 
         qDebug("Storage image copied! sampleBatch: %i", sampleBatch);
     }
+    
+    m_deviceFunctions->vkDestroySemaphore(m_vulkanWindow->device(), computeFinishedSemaphore, nullptr);
 }

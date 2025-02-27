@@ -920,19 +920,8 @@ void VulkanRenderer::startNextFrame()
     m_vulkanWindow->requestUpdate(); 
 }
 
-void VulkanRenderer::copyStorageImage(VkFence fence)
+void VulkanRenderer::copyStorageImage(VkSemaphore computeFinishedSemaphore)
 {
-    // Wait for the provided fence to signal (ensuring prior work is complete)
-    if (fence != VK_NULL_HANDLE)
-    {
-        VkResult result = m_deviceFunctions->vkWaitForFences(m_vulkanWindow->device(), 1, &fence, VK_TRUE, UINT64_MAX);
-        if (result != VK_SUCCESS)
-        {
-            qWarning("Failed to wait for input fence (error code: %d)", result);
-            return;
-        }
-    }
-
     VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_graphicsCommandPool.getCommandPool(), m_graphicsQueue);
 
     commandBuffer.beginSingleTimeCommandBuffer();
@@ -943,7 +932,7 @@ void VulkanRenderer::copyStorageImage(VkFence fence)
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
         .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -1027,5 +1016,10 @@ void VulkanRenderer::copyStorageImage(VkFence fence)
     0, nullptr, 
     1, &imageMemoryBarrierToShaderRead);   
 
-    commandBuffer.endSubmitAndWait();
+    // Submit, waiting on the compute semaphore
+    if (computeFinishedSemaphore != VK_NULL_HANDLE) {
+        commandBuffer.endSubmitAndWait({computeFinishedSemaphore}, {VK_PIPELINE_STAGE_TRANSFER_BIT}, {});
+    } else {
+        commandBuffer.endSubmitAndWait();
+    }
 }

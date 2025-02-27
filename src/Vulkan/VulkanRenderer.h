@@ -25,7 +25,7 @@ public:
 
     qint64 getDeltaTimeNs() { return m_renderTimeNs; }
 
-    void copyStorageImage(VkFence fence);
+    void copyStorageImage(VkSemaphore semaphore);
 
 protected:
     VulkanWindow* m_vulkanWindow = nullptr;

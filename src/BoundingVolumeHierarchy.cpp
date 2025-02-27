@@ -36,7 +36,7 @@ void BVH::constructBVH(uint32_t startTriangleIndex, uint32_t endTriangleIndex, u
     if (currentTriangleCount == 1) 
     {
         node.minBounds.w = -1.0f;                  // leaf flag
-        node.maxBounds.w = startTriangleIndex * 3; // Offset into indices
+        node.maxBounds.w = startTriangleIndex; // Offset into indices
     } 
     else 
     {

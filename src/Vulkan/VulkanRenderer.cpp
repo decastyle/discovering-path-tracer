@@ -10,73 +10,15 @@ static const uint32_t workgroup_height = 16;
 
 // TODO: Include .obj loader and a button "Load .obj" to load vertexData (update vertex input locations)
 
-// static float vertexData[] = {
-//     // Position (x, y, z)  // Normal (nx, ny, nz) // UV (u, v)
-//
-//     // Front face (Z = 1.0f)
-//     -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
-//      0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
-//      0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
-//
-//      0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
-//     -0.5f,  0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
-//     -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
-//
-//     // Back face (Z = -1.0f)
-//     -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 0.0f,
-//      0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f,
-//      0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 0.0f,
-//
-//      0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    0.0f, 1.0f,
-//     -0.5f, -0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 0.0f,
-//     -0.5f,  0.5f, -0.5f,    0.0f,  0.0f, -1.0f,    1.0f, 1.0f,
-//
-//     // Left face (X = -1.0f)
-//     -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
-//     -0.5f, -0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 0.0f,
-//     -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
-//
-//     -0.5f,  0.5f,  0.5f,   -1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
-//     -0.5f,  0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 1.0f,
-//     -0.5f, -0.5f, -0.5f,   -1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
-//
-//     // Right face (X = 1.0f)
-//      0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
-//      0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
-//      0.5f, -0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 0.0f,
-//
-//      0.5f,  0.5f,  0.5f,    1.0f,  0.0f,  0.0f,    1.0f, 1.0f,
-//      0.5f, -0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 0.0f,
-//      0.5f,  0.5f, -0.5f,    1.0f,  0.0f,  0.0f,    0.0f, 1.0f,
-//
-//     // Top face (Y = 1.0f)
-//     -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 0.0f,
-//      0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 1.0f,
-//      0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 0.0f,
-//
-//      0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    1.0f, 1.0f,
-//     -0.5f,  0.5f, -0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 0.0f,
-//     -0.5f,  0.5f,  0.5f,    0.0f,  1.0f,  0.0f,    0.0f, 1.0f,
-//
-//     // Bottom face (Y = -1.0f)
-//     -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 0.0f,
-//      0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 0.0f,
-//      0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 1.0f,
-//
-//      0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    1.0f, 1.0f,
-//     -0.5f, -0.5f,  0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 1.0f,
-//     -0.5f, -0.5f, -0.5f,    0.0f, -1.0f,  0.0f,    0.0f, 0.0f,
-// };
-
 static float vertexData[] = {
     // Front face (Z = 1.0f)
-    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
-     0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
-     0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
+    -1.0f, -1.0f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
+     1.0f, -1.0f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 1.0f,
+     1.0f,  1.0f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
 
-     0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
-    -0.5f,  0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
-    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
+     1.0f,  1.0f,  0.0f,    0.0f,  0.0f,  1.0f,    1.0f, 0.0f,
+    -1.0f,  1.0f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 0.0f,
+    -1.0f, -1.0f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f, 1.0f,
 };
 
 static const int UNIFORM_MATRIX_DATA_SIZE = 16 * sizeof(float);
@@ -848,19 +790,19 @@ void VulkanRenderer::startNextFrame()
     // Map projection matrix
     /////////////////////////////////////////////////////////////////////
     
-    Camera *camera = m_vulkanWindow->getCamera();
+    // Camera *camera = m_vulkanWindow->getCamera();
 
-    QMatrix4x4 projectionMatrix = camera->getProjectionMatrix();
-    QVector3D cameraPosition = camera->getPosition();
+    // QMatrix4x4 projectionMatrix = camera->getProjectionMatrix();
+    // QVector3D cameraPosition = camera->getPosition();
 
-    // VkDeviceSize totalSize = UNIFORM_MATRIX_DATA_SIZE + UNIFORM_VECTOR_DATA_SIZE;
-    VkDeviceSize offset = m_uniformBufferInfo[currentFrame].offset;
+    // // VkDeviceSize totalSize = UNIFORM_MATRIX_DATA_SIZE + UNIFORM_VECTOR_DATA_SIZE;
+    // VkDeviceSize offset = m_uniformBufferInfo[currentFrame].offset;
 
-    // Copy projection matrix
-    m_uniformBuffer.copyData(projectionMatrix.constData(), UNIFORM_MATRIX_DATA_SIZE, offset);
+    // // Copy projection matrix
+    // m_uniformBuffer.copyData(projectionMatrix.constData(), UNIFORM_MATRIX_DATA_SIZE, offset);
 
-    // Copy camera position (after matrix)
-    m_uniformBuffer.copyData(&cameraPosition, UNIFORM_VECTOR_DATA_SIZE, offset + UNIFORM_MATRIX_DATA_SIZE);
+    // // Copy camera position (after matrix)
+    // m_uniformBuffer.copyData(&cameraPosition, UNIFORM_VECTOR_DATA_SIZE, offset + UNIFORM_MATRIX_DATA_SIZE);
 
 
     /////////////////////////////////////////////////////////////////////

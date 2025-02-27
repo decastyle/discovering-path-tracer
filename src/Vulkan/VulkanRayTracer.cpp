@@ -20,6 +20,13 @@ static const uint64_t render_height    = 1024;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 16;
 
+static const int UNIFORM_VECTOR_DATA_SIZE = 4 * sizeof(float);
+
+static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
+{
+    return (v + byteAlign - 1) & ~(byteAlign - 1);
+}
+
 VulkanRayTracer::VulkanRayTracer(VulkanWindow *w)
     : m_vulkanWindow(w){}
 
@@ -44,6 +51,9 @@ void VulkanRayTracer::initComputePipeline()
     m_deviceFunctions->vkGetDeviceQueue(m_device, m_computeQueueFamilyIndex, 0, &m_computeQueue);
     m_computeCommandPool = VulkanCommandPool(m_vulkanWindow, m_computeQueueFamilyIndex);
 
+    const VkPhysicalDeviceLimits *pdevLimits = &m_vulkanWindow->physicalDeviceProperties()->limits;
+    const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
+
     /////////////////////////////////////////////////////////////////////
     // Load the mesh from an OBJ file
     /////////////////////////////////////////////////////////////////////
@@ -65,8 +75,6 @@ void VulkanRayTracer::initComputePipeline()
             objIndices.push_back(index.vertex_index);
         }
     }
-    // std::vector<tinyobj::real_t> objVertices = { -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
-    // std::vector<uint32_t> objIndices = { 0, 1, 2 };
 
     BVH bvh(objVertices, objIndices);
     // bvh.printBVH(bvh);
@@ -116,6 +124,12 @@ void VulkanRayTracer::initComputePipeline()
                                             m_vulkanWindow->hostVisibleMemoryIndex());
 
     m_BVHStagingBuffer.copyData(bvh.getNodes().data(), BVHSize); 
+
+    const VkDeviceSize uniformBufferDeviceSize = aligned(UNIFORM_VECTOR_DATA_SIZE, uniAlign) * 4;
+    m_uniformBuffer         = VulkanBuffer(m_vulkanWindow, 
+                                            uniformBufferDeviceSize, 
+                                            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
 
     /////////////////////////////////////////////////////////////////////
     // Copy staging buffers to device local memory buffers
@@ -207,6 +221,10 @@ void VulkanRayTracer::initComputePipeline()
         {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .descriptorCount = 3  // For vertex, index, and BVH buffers
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1  // For camera data  
         }
     };
 
@@ -215,7 +233,7 @@ void VulkanRayTracer::initComputePipeline()
         .pNext = nullptr,
         .flags = 0,
         .maxSets = 1,              // Still one descriptor set
-        .poolSizeCount = 2,        // Two types: image and buffer
+        .poolSizeCount = 3,
         .pPoolSizes = descriptorPoolSizes
     };
 
@@ -254,6 +272,13 @@ void VulkanRayTracer::initComputePipeline()
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
             .pImmutableSamplers = nullptr
+        },
+        {   // Binding 4: Uniform Buffer
+            .binding = 4,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
         }
     };
 
@@ -262,7 +287,7 @@ void VulkanRayTracer::initComputePipeline()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 4,
+        .bindingCount = 5,
         .pBindings = descriptorSetLayoutBinding
     };
 
@@ -313,6 +338,12 @@ void VulkanRayTracer::initComputePipeline()
         .buffer = m_BVHBuffer.getBuffer(),
         .offset = 0,
         .range = BVHSize
+    };
+
+    VkDescriptorBufferInfo uniformBufferInfo = {
+        .buffer = m_uniformBuffer.getBuffer(),
+        .offset = 0,
+        .range = uniformBufferDeviceSize
     };
 
     VkWriteDescriptorSet storageImageWrite
@@ -371,10 +402,23 @@ void VulkanRayTracer::initComputePipeline()
         .pTexelBufferView = nullptr
     };
 
+    VkWriteDescriptorSet uniformBufferWrite = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 4,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &uniformBufferInfo,
+        .pTexelBufferView = nullptr
+    };
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , vertexBufferWrite , indexBufferWrite , BVHBufferWrite };
+
+    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , vertexBufferWrite , indexBufferWrite , BVHBufferWrite , uniformBufferWrite };
     
-    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 4, descriptorWrites, 0, nullptr);
+    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 5, descriptorWrites, 0, nullptr);
 
     /////////////////////////////////////////////////////////////////////
     // Compute pipeline setup
@@ -475,9 +519,23 @@ void VulkanRayTracer::initComputePipeline()
 
 void VulkanRayTracer::mainLoop()
 {
-    const uint32_t NUM_SAMPLE_BATCHES = 1024;
+    const uint32_t NUM_SAMPLE_BATCHES = 0xFFFFFFFF;
     for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
     {
+        m_rayTraceTimer.start();
+
+        Camera *camera = m_vulkanWindow->getCamera();
+
+        QVector3D cameraPosition = camera->getPosition();
+        QVector3D cameraDirection = camera->getDirection();
+        QVector3D cameraUp = camera->getUp();
+        float cameraFov = camera->getFov();
+
+        m_uniformBuffer.copyData(&cameraPosition, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 0);
+        m_uniformBuffer.copyData(&cameraDirection, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 1);
+        m_uniformBuffer.copyData(&cameraUp, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 2);
+        m_uniformBuffer.copyData(&cameraFov, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 3);
+
         VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
 
         commandBuffer.beginSingleTimeCommandBuffer();
@@ -560,6 +618,11 @@ void VulkanRayTracer::mainLoop()
         VkFence fence = commandBuffer.getFence();
 
         m_vulkanWindow->getVulkanRenderer()->copyStorageImage(fence);
+
+        m_rayTraceTimeNs = m_rayTraceTimer.nsecsElapsed();
+        double fps = 1e9/(static_cast<double>(m_rayTraceTimeNs));
+
+        qDebug().nospace() << "Render time: " << (m_rayTraceTimeNs / 1.0e6) << " ms, FPS: " << fps;
 
         qDebug("Storage image copied! sampleBatch: %i", sampleBatch);
     }

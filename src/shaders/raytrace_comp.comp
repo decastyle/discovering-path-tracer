@@ -18,6 +18,13 @@ layout(binding = 3, set = 0) readonly buffer BVHBuffer {
     BVHNode nodes[];
 };
 
+layout(std140, binding = 4) uniform CameraBuffer {
+    vec3 cameraPos;
+    vec3 cameraDir;
+    vec3 cameraUp;
+    vec3 fov;
+} camera;
+
 const vec3 cameraPos = vec3(0.0, 0.0, 5.0);
 const vec3 cameraDir = vec3(0.0, 0.0, -1.0);
 const vec3 cameraUp = vec3(0.0, 1.0, 0.0);
@@ -94,7 +101,7 @@ float traceRay(Ray ray) {
 }
 
 void main()
-{
+{   
     const ivec2 resolution = imageSize(outputImage);
     const uvec2 pixel = gl_GlobalInvocationID.xy;
 
@@ -105,15 +112,20 @@ void main()
     float ndcX = (2.0 * float(pixel.x) / float(resolution.x)) - 1.0;
     float ndcY = (2.0 * float(pixel.y) / float(resolution.y)) - 1.0;
     float aspect = float(resolution.x) / float(resolution.y);
-    float tanFov = tan(radians(fov * 0.5));
-    vec3 right = normalize(cross(cameraDir, cameraUp));
-    vec3 up = normalize(cross(right, cameraDir));
-    vec3 rayDir = normalize(cameraDir + (ndcX * tanFov * aspect) * right - (ndcY * tanFov) * up);
-    Ray ray = Ray(cameraPos, rayDir);
+
+    float tanFov = tan(radians(camera.fov.x * 0.5));
+
+    vec3 right = normalize(cross(camera.cameraDir, -camera.cameraUp));
+    vec3 up = normalize(cross(right, camera.cameraDir));
+
+    vec3 rayDir = normalize(camera.cameraDir + (ndcX * tanFov * aspect) * -right - (ndcY * tanFov) * up);
+
+    Ray ray = Ray(camera.cameraPos, rayDir);
 
     float depth = traceRay(ray);
     float normalizedDepth = (depth < 1e30) ? (depth / 10.0) : 1.0;
     normalizedDepth = clamp(normalizedDepth, 0.0, 1.0);
+
     vec4 pixelColor = vec4(vec3(normalizedDepth), 1.0);
     imageStore(outputImage, ivec2(pixel), pixelColor);
 }

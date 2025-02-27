@@ -11,8 +11,12 @@ class Camera
 public:
     Camera(VulkanWindow* w);
 
-    QMatrix4x4 getProjectionMatrix();
-    QVector3D getPosition();
+    QMatrix4x4 getProjectionMatrix() const;
+
+    QVector3D getPosition() const;
+    QVector3D getDirection() const; 
+    QVector3D getUp() const;       
+    float getFov() const;  
 
     void cameraSwapChainUpdate();
     void cameraViewUpdate(QPoint m_deltaCursorPosition);
@@ -29,7 +33,7 @@ private:
 
     float m_fov = 60.0f;
     float m_sensitivity = 0.25f;
-    float m_radius = 0.9f;
+    float m_radius = 5.0f;
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
 };

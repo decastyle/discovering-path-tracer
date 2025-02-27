@@ -76,12 +76,31 @@ void Camera::cameraZoomUpdate(float m_zoom)
     m_updatedMatrix.lookAt(m_cameraPosition, QVector3D(0, 0, 0), cameraUp);
 }
 
-QMatrix4x4 Camera::getProjectionMatrix()
+QMatrix4x4 Camera::getProjectionMatrix() const
 {
     return m_projectionMatrix * m_updatedMatrix;
 }
 
-QVector3D Camera::getPosition()
+QVector3D Camera::getPosition() const
 {
     return m_cameraPosition;
+}
+
+// New getter implementations
+QVector3D Camera::getDirection() const
+{
+    // Direction is from camera position to the target (0, 0, 0), normalized
+    QVector3D target(0, 0, 0);
+    return (target - m_cameraPosition).normalized();
+}
+
+QVector3D Camera::getUp() const
+{
+    // Up vector is the rotated (0, 1, 0) based on the camera's orientation
+    return m_rotation * QVector3D(0, 1, 0);
+}
+
+float Camera::getFov() const
+{
+    return m_fov;
 }

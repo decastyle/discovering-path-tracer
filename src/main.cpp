@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 
     MainWindow mainWindow(vulkanWindow);
 
-    mainWindow.resize(800, 600);
+    mainWindow.resize(1024, 1024);
     mainWindow.show();
 
     /*

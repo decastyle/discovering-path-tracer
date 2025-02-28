@@ -6,6 +6,8 @@
 #include "VulkanCommandPool.h"
 #include "BoundingVolumeHierarchy.h"
 
+#include <QThread>
+
 #include "VulkanWindow.h"
 
 struct PushConstants
@@ -511,7 +513,7 @@ void VulkanRayTracer::initComputePipeline()
     }
 
     /////////////////////////////////////////////////////////////////////
-    // Main loop
+    // Main loop call
     /////////////////////////////////////////////////////////////////////
 
     mainLoop();
@@ -519,111 +521,151 @@ void VulkanRayTracer::initComputePipeline()
 
 void VulkanRayTracer::mainLoop()
 {
-    const uint32_t NUM_SAMPLE_BATCHES = 0xFFFFFFFF;
-    for(uint32_t sampleBatch = 0; sampleBatch < NUM_SAMPLE_BATCHES; sampleBatch++)
+    const uint32_t NUM_SAMPLE_BATCHES = 64; // TODO: Pass max samples through UI
+
+    bool shouldRayTrace = true;
+    uint32_t sampleBatch = 0;
+    QVector3D lastCameraPosition{};
+    QVector3D lastCameraDirection{};
+    QVector3D lastCameraUp{};
+    float lastCameraFov = -1.0f;
+
+    while(true)
     {
-        m_rayTraceTimer.start();
-
         Camera *camera = m_vulkanWindow->getCamera();
-
-        QVector3D cameraPosition = camera->getPosition();
+        
+        // Get current camera parameters
+        QVector3D cameraPosition  = camera->getPosition();
         QVector3D cameraDirection = camera->getDirection();
-        QVector3D cameraUp = camera->getUp();
-        float cameraFov = camera->getFov();
+        QVector3D cameraUp        = camera->getUp();
+        float cameraFov           = camera->getFov();
 
-        m_uniformBuffer.copyData(&cameraPosition, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 0);
-        m_uniformBuffer.copyData(&cameraDirection, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 1);
-        m_uniformBuffer.copyData(&cameraUp, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 2);
-        m_uniformBuffer.copyData(&cameraFov, UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 3);
+        // Check if camera has changed
+        bool cameraChanged = (  cameraPosition != lastCameraPosition ||
+                                cameraDirection != lastCameraDirection ||
+                                cameraUp != lastCameraUp ||
+                                cameraFov != lastCameraFov);
 
-        VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
-
-        commandBuffer.beginSingleTimeCommandBuffer();
-
-        VkImageMemoryBarrier imageMemoryBarrierToGeneral
+        if (cameraChanged) 
         {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = m_storageImage.getImage(),
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
-        };  
+            sampleBatch         = 0;  // Reset samples when camera changes
+            shouldRayTrace      = true;  // Enable ray tracing
+            
+            // Update last known camera parameters
+            lastCameraPosition  = cameraPosition;
+            lastCameraDirection = cameraDirection;
+            lastCameraUp        = cameraUp;
+            lastCameraFov       = cameraFov;
+        }
 
-        m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        0,
-        0, nullptr,
-        0, nullptr, 
-        1, &imageMemoryBarrierToGeneral);   
-
-        m_deviceFunctions->vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
-
-        m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
-
-        // Push push constants:
-        pushConstants.sample_batch = sampleBatch;
-        vkCmdPushConstants(commandBuffer.getCommandBuffer(),
-                        m_pipelineLayout,
-                        VK_SHADER_STAGE_COMPUTE_BIT,
-                        0,
-                        sizeof(PushConstants),
-                        &pushConstants);               
-
-        m_deviceFunctions->vkCmdDispatch(commandBuffer.getCommandBuffer(),
-                    (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
-                    (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
-
-        VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+        if (shouldRayTrace) // RayTrace state
         {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = m_storageImage.getImage(),
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
+            m_rayTraceTimer.start();
+
+            // Update uniform buffer
+            m_uniformBuffer.copyData(&cameraPosition,   UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 0);
+            m_uniformBuffer.copyData(&cameraDirection,  UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 1);
+            m_uniformBuffer.copyData(&cameraUp,         UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 2);
+            m_uniformBuffer.copyData(&cameraFov,        UNIFORM_VECTOR_DATA_SIZE, UNIFORM_VECTOR_DATA_SIZE * 3);
+
+            VulkanCommandBuffer commandBuffer = VulkanCommandBuffer(m_vulkanWindow, m_computeCommandPool.getCommandPool(), m_computeQueue);
+
+            commandBuffer.beginSingleTimeCommandBuffer();
+
+            VkImageMemoryBarrier imageMemoryBarrierToGeneral
+            {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+                .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = m_storageImage.getImage(),
+                .subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                }
+            };  
+
+            m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr, 
+            1, &imageMemoryBarrierToGeneral);   
+
+            m_deviceFunctions->vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+
+            m_deviceFunctions->vkCmdBindDescriptorSets(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+
+            // Push constants
+            pushConstants.sample_batch = sampleBatch;
+            vkCmdPushConstants(commandBuffer.getCommandBuffer(),
+                            m_pipelineLayout,
+                            VK_SHADER_STAGE_COMPUTE_BIT,
+                            0,
+                            sizeof(PushConstants),
+                            &pushConstants);               
+
+            m_deviceFunctions->vkCmdDispatch(commandBuffer.getCommandBuffer(),
+                        (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+                        (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
+
+            VkImageMemoryBarrier imageMemoryBarrierToTransferSrc
+            {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = m_storageImage.getImage(),
+                .subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                }
+            };  
+
+            m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr, 
+            1, &imageMemoryBarrierToTransferSrc);   
+
+            commandBuffer.endSubmitAndWait();
+
+            VkFence fence = commandBuffer.getFence();
+            m_vulkanWindow->getVulkanRenderer()->copyStorageImage(fence);
+
+            // Timing and debug output
+            m_rayTraceTimeNs = m_rayTraceTimer.nsecsElapsed();
+            double fps = 1e9/(static_cast<double>(m_rayTraceTimeNs));
+            qDebug().nospace() << "Render time: " << (m_rayTraceTimeNs / 1.0e6) << " ms, FPS: " << fps;
+            qDebug("Storage image copied! sampleBatch: %i", sampleBatch);
+
+            sampleBatch++;  // Increment sample batch
+            
+            if (sampleBatch >= NUM_SAMPLE_BATCHES) 
+            {
+                shouldRayTrace = false;
             }
-        };  
-
-        m_deviceFunctions->vkCmdPipelineBarrier(commandBuffer.getCommandBuffer(),
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0, nullptr,
-        0, nullptr, 
-        1, &imageMemoryBarrierToTransferSrc);   
-
-        commandBuffer.endSubmitAndWait();
-
-        VkFence fence = commandBuffer.getFence();
-
-        m_vulkanWindow->getVulkanRenderer()->copyStorageImage(fence);
-
-        m_rayTraceTimeNs = m_rayTraceTimer.nsecsElapsed();
-        double fps = 1e9/(static_cast<double>(m_rayTraceTimeNs));
-
-        qDebug().nospace() << "Render time: " << (m_rayTraceTimeNs / 1.0e6) << " ms, FPS: " << fps;
-
-        qDebug("Storage image copied! sampleBatch: %i", sampleBatch);
+        }
+        // Add small sleep when not ray tracing to reduce CPU usage
+        else {
+            QThread::msleep(16); // ~60 FPS idle
+        }
     }
 }

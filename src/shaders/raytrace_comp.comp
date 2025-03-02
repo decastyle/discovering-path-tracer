@@ -1,5 +1,7 @@
 #version 460
 
+
+
 struct BVHNode 
 {
     vec4 minBounds;
@@ -10,6 +12,12 @@ struct Ray
 {
     vec3 origin;
     vec3 dir;
+};
+
+struct LightInfo
+{
+    vec3 lightPos;
+    float lightIntensity;
 };
 
 struct HitInfo 
@@ -26,27 +34,23 @@ struct PushConstants
     uint sample_batch;
 };
 
+
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
 layout(push_constant) uniform PushConsts
 {
     PushConstants pushConstants;
 };
 
-struct LightInfo
-{
-    vec3 lightPos;
-    float lightIntensity;
-};
-
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-
 layout(binding = 0, set = 0, rgba32f) uniform image2D outputImage;
 
-layout(binding = 1, set = 0) readonly buffer VertexBuffer 
+layout(binding = 1, set = 0) readonly buffer VertexBuffer
 {
     float vertices[];
 };
 
-layout(binding = 2, set = 0) readonly buffer IndexBuffer 
+layout(binding = 2, set = 0) readonly buffer IndexBuffer
 {
     uint indices[];
 };
@@ -84,21 +88,39 @@ bool intersectAABB(Ray ray, vec3 minBounds, vec3 maxBounds, out float tMin, out 
 
 bool intersectTriangle(Ray ray, vec3 v0, vec3 v1, vec3 v2, out float t) 
 {
-    const float EPSILON = 0.000001;
+    const float EPSILON = 0.000001; // Small value to avoid floating-point errors
+
+    // Triangle edges
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
-    vec3 h = cross(ray.dir, edge2);
-    float a = dot(edge1, h);
-    if (abs(a) < EPSILON) return false;
-    float f = 1.0 / a;
-    vec3 s = ray.origin - v0;
-    float u = f * dot(s, h);
-    if (u < 0.0 || u > 1.0) return false;
-    vec3 q = cross(s, edge1);
-    float v = f * dot(ray.dir, q);
-    if (v < 0.0 || u + v > 1.0) return false;
-    t = f * dot(edge2, q);
-    return t > EPSILON;
+
+    // Calculate determinant (ray-plane parallelism check)
+    vec3 rayCrossEdge2 = cross(ray.dir, edge2);
+    float determinant = dot(edge1, rayCrossEdge2);
+
+    // If determinant is near zero, ray is parallel to triangle
+    if (abs(determinant) < EPSILON) return false;
+
+
+    // Inverse determinant for scaling barycentric coordinates
+    float invDeterminant = 1.0 / determinant;
+
+    // Vector from triangle vertex v0 to ray origin
+    vec3 originToVertex = ray.origin - v0;
+
+    // Compute barycentric coordinate u (first coordinate)
+    float u = invDeterminant * dot(originToVertex, rayCrossEdge2);
+    if (u < 0.0 || u > 1.0) return false; // Outside triangle bounds
+
+
+    // Compute barycentric coordinate v (second coordinate)
+    vec3 originCrossEdge1 = cross(originToVertex, edge1);
+    float v = invDeterminant * dot(ray.dir, originCrossEdge1);
+    if (v < 0.0 || u + v > 1.0) return false; // Outside triangle bounds
+
+    // Compute distance t along ray where intersection occurs
+    t = invDeterminant * dot(edge2, originCrossEdge1);
+    return t > EPSILON; // Valid intersection if t is positive
 }
 
 HitInfo traceRay(Ray ray) 
@@ -126,6 +148,7 @@ HitInfo traceRay(Ray ray)
                 vec3 v1 = getVertex(indices[triIdx + 1]);
                 vec3 v2 = getVertex(indices[triIdx + 2]);
                 float t;
+                
                 if (intersectTriangle(ray, v0, v1, v2, t) && t < hitInfo.t) 
                 {
                     hitInfo.t = t;
@@ -147,44 +170,48 @@ HitInfo traceRay(Ray ray)
 
 // Simple random number generator (for diffuse sampling)
 uint rngState;
+
 float stepAndOutputRNGFloat(inout uint rngState) 
 {
-    rngState = rngState * 747796405u + 2891336453u;
+    rngState    = rngState * 747796405u + 2891336453u;
     uint result = ((rngState >> ((rngState >> 28u) + 4u)) ^ rngState) * 277803737u;
-    result = (result >> 22u) ^ result;
+    result      = (result >> 22u) ^ result;
+
     return float(result) / 4294967295.0;
 }
 
 vec2 randomGaussian(inout uint rngState) 
 {
-    const float u1 = max(1e-38, stepAndOutputRNGFloat(rngState));
-    const float u2 = stepAndOutputRNGFloat(rngState);
-    const float r = sqrt(-2.0 * log(u1));
-    const float theta = 2.0 * 3.141592653589793238462643383279502884197169399375105820974944 * u2;
+    const float u1      = max(1e-38, stepAndOutputRNGFloat(rngState));
+    const float u2      = stepAndOutputRNGFloat(rngState);
+    const float r       = sqrt(-2.0 * log(u1));
+    const float theta   = 2.0 * 3.141592653589793238462643383279502884197169399375105820974944 * u2;
+
     return r * vec2(cos(theta), sin(theta));
 }
 
 // Sample cosine-weighted hemisphere
 vec3 sampleHemisphere(vec3 normal, inout uint rngState) 
 {
-    float r1 = stepAndOutputRNGFloat(rngState);
-    float r2 = stepAndOutputRNGFloat(rngState);
-    float theta = acos(sqrt(1.0 - r1));
-    float phi = 2.0 * 3.14159 * r2;
-    vec3 localDir = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+    float r1        = stepAndOutputRNGFloat(rngState);
+    float r2        = stepAndOutputRNGFloat(rngState);
+    float theta     = acos(sqrt(1.0 - r1));
+    float phi       = 2.0 * 3.14159 * r2;
+    vec3 localDir   = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 
     // Align with normal
-    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, normal));
-    vec3 bitangent = cross(normal, tangent);
+    vec3 up         = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent    = normalize(cross(up, normal));
+    vec3 bitangent  = cross(normal, tangent);
+
     return tangent * localDir.x + bitangent * localDir.y + normal * localDir.z;
 }
 
 vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo) 
 {
-    vec3 throughput = vec3(1.0); // Accumulated light contribution
-    vec3 radiance = vec3(0.0);   // Total radiance
-    const int MAX_DEPTH = 4;     // Limit bounces
+    vec3 throughput     = vec3(1.0);    // Accumulated light contribution
+    vec3 radiance       = vec3(0.0);    // Total radiance
+    const int MAX_DEPTH = 4;            // Limit bounces
 
     rngState = seed;
 
@@ -198,26 +225,29 @@ vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo)
         }
 
         // Direct lighting (diffuse)
-        vec3 lightDir = normalize(lightInfo.lightPos - hit.position);
-        float diffuse = max(dot(hit.normal, lightDir), 0.0);
-        vec3 albedo = vec3(0.8); // Fixed diffuse albedo
-        vec3 directLight = vec3(0.0);
+        vec3 lightDir       = normalize(lightInfo.lightPos - hit.position);
+        float diffuse       = max(dot(hit.normal, lightDir), 0.0);
+        vec3 albedo         = vec3(0.8); // Fixed diffuse albedo
+        vec3 directLight    = vec3(0.0);
+
 
         // Shadow ray to light
-        Ray shadowRay = Ray(hit.position + hit.normal * 0.001, lightDir); // Offset to avoid self-intersection
-        HitInfo shadowHit = traceRay(shadowRay);
+        Ray shadowRay       = Ray(hit.position + hit.normal * 0.001, lightDir); // Offset to avoid self-intersection
+        HitInfo shadowHit   = traceRay(shadowRay);
 
-        float lightDist = length(lightInfo.lightPos - hit.position);
+        float lightDist     = length(lightInfo.lightPos - hit.position);
+
         if (!shadowHit.hit || shadowHit.t >= lightDist - 0.001) // No occlusion or hit beyond light
         { 
-            directLight = albedo * diffuse * lightInfo.lightIntensity;
+            directLight     = albedo * diffuse * lightInfo.lightIntensity;
         }
-        radiance += throughput * directLight;
+        radiance            += throughput * directLight;
+
 
         // Indirect lighting (diffuse)
-        vec3 bounceDir = sampleHemisphere(hit.normal, rngState);
-        throughput *= albedo * dot(hit.normal, bounceDir); // Cosine term included
-        ray = Ray(hit.position + hit.normal * 0.001, bounceDir); // Offset to avoid self-intersection
+        vec3 bounceDir      = sampleHemisphere(hit.normal, rngState);
+        throughput          *= albedo * dot(hit.normal, bounceDir); // Cosine term included
+        ray                 = Ray(hit.position + hit.normal * 0.001, bounceDir); // Offset to avoid self-intersection
     }
 
     return radiance;
@@ -225,39 +255,54 @@ vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo)
 
 void main()
 {   
-    const ivec2 resolution = imageSize(outputImage);
-    const uvec2 pixel = gl_GlobalInvocationID.xy;
+    const ivec2 resolution  = imageSize(outputImage);
+    const uvec2 pixel       = gl_GlobalInvocationID.xy;
 
     if (pixel.x >= uint(resolution.x) || pixel.y >= uint(resolution.y)) 
     {
         return;
     }
 
-    float ndcX = (2.0 * float(pixel.x) / float(resolution.x)) - 1.0;
-    float ndcY = (2.0 * float(pixel.y) / float(resolution.y)) - 1.0;
-    float aspect = float(resolution.x) / float(resolution.y);
+    float ndcX      = (2.0 * float(pixel.x) / float(resolution.x)) - 1.0;
+    float ndcY      = (2.0 * float(pixel.y) / float(resolution.y)) - 1.0;
+    float aspect    = float(resolution.x)   / float(resolution.y);
 
     // Seed RNG with pixel coords and sample batch
-    uint seed = uint((pushConstants.sample_batch * resolution.y + pixel.y) * resolution.x + pixel.x);
-    rngState = seed;
+    uint seed       = uint((pushConstants.sample_batch * resolution.y + pixel.y) * resolution.x + pixel.x);
+    rngState        = seed;
+
+
+
+    // Depth of field parameters
+    float aperture      = 0.02; // Aperture size (controls blur strength)
+    float focalDistance = 5.0; // Distance to focal plane
+
+    // Jitter ray origin for depth of field
+    vec2 apertureOffset = randomGaussian(rngState) * aperture;
+    vec3 right          = normalize(cross(camera.cameraDir, -camera.cameraUp));
+    vec3 up             = normalize(cross(right, camera.cameraDir));
+    vec3 newOrigin      = camera.cameraPos + right * apertureOffset.x + up * apertureOffset.y;
 
     // Add jitter to NDC coordinates (anti-aliasing)
-    vec2 jitter = randomGaussian(rngState);
-    float jitterScale = 0.5; // Scale to keep jitter within half a pixel
-    ndcX += jitter.x * jitterScale / float(resolution.x);
-    ndcY += jitter.y * jitterScale / float(resolution.y);
+    vec2 jitter         = randomGaussian(rngState);
+    float jitterScale   = 0.5; // Scale to keep jitter within half a pixel
+    ndcX                += jitter.x * jitterScale / float(resolution.x);
+    ndcY                += jitter.y * jitterScale / float(resolution.y);
 
-    float tanFov = tan(radians(camera.fov.x * 0.5));
-    vec3 right = normalize(cross(camera.cameraDir, -camera.cameraUp));
-    vec3 up = normalize(cross(right, camera.cameraDir));
-    vec3 rayDir = normalize(camera.cameraDir + (ndcX * tanFov * aspect) * -right - (ndcY * tanFov) * up);
+    // Compute focal point and new ray direction
+    float tanFov        = tan(radians(camera.fov.x * 0.5));
+    vec3 baseDir        = normalize(camera.cameraDir + (ndcX * tanFov * aspect) * -right - (ndcY * tanFov) * up);
+    vec3 focalPoint     = camera.cameraPos + baseDir * focalDistance;
+    vec3 rayDir         = normalize(focalPoint - newOrigin);
 
-    Ray ray = Ray(camera.cameraPos, rayDir);                    // Ray to trace
+    
+
+    Ray ray             = Ray(newOrigin, rayDir);        // Ray to trace
     LightInfo lightInfo = LightInfo(vec3(-3.0, 5.0, 0.0), 1.0); // Light info
 
-    vec3 color = pathTrace(ray, seed, lightInfo);
+    vec3 color          = pathTrace(ray, seed, lightInfo);
 
-    vec4 prevColor = imageLoad(outputImage, ivec2(pixel));
-    vec4 newColor = (prevColor * float(pushConstants.sample_batch) + vec4(color, 1.0)) / float(pushConstants.sample_batch + 1);
+    vec4 prevColor      = imageLoad(outputImage, ivec2(pixel));
+    vec4 newColor       = (prevColor * float(pushConstants.sample_batch) + vec4(color, 1.0)) / float(pushConstants.sample_batch + 1);
     imageStore(outputImage, ivec2(pixel), newColor);
 }

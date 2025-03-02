@@ -521,14 +521,14 @@ void VulkanRayTracer::initComputePipeline()
 
 void VulkanRayTracer::mainLoop()
 {
-    const uint32_t NUM_SAMPLE_BATCHES = 64; // TODO: Pass max samples through UI
+    const uint32_t NUM_SAMPLE_BATCHES = 1024; // TODO: Pass max samples through UI
 
-    bool shouldRayTrace = true;
-    uint32_t sampleBatch = 0;
+    bool shouldRayTrace     = true;
+    uint32_t sampleBatch    = 0;
     QVector3D lastCameraPosition{};
     QVector3D lastCameraDirection{};
     QVector3D lastCameraUp{};
-    float lastCameraFov = -1.0f;
+    float lastCameraFov     = -1.0f;
 
     while(true)
     {
@@ -541,10 +541,10 @@ void VulkanRayTracer::mainLoop()
         float cameraFov           = camera->getFov();
 
         // Check if camera has changed
-        bool cameraChanged = (  cameraPosition != lastCameraPosition ||
+        bool cameraChanged = (  cameraPosition  != lastCameraPosition ||
                                 cameraDirection != lastCameraDirection ||
-                                cameraUp != lastCameraUp ||
-                                cameraFov != lastCameraFov);
+                                cameraUp        != lastCameraUp ||
+                                cameraFov       != lastCameraFov);
 
         if (cameraChanged) 
         {

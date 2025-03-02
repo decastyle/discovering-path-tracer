@@ -12,12 +12,23 @@ struct Ray
     vec3 dir;
 };
 
-struct HitInfo {
+struct HitInfo 
+{
     float t;        // Distance to hit
     vec3 position;  // Hit position
     vec3 normal;    // Surface normal
     uint triIdx;    // Triangle index (for material lookup later)
     bool hit;       // True if a hit occurred
+};
+
+struct PushConstants
+{
+    uint sample_batch;
+};
+
+layout(push_constant) uniform PushConsts
+{
+    PushConstants pushConstants;
 };
 
 struct LightInfo
@@ -134,15 +145,82 @@ HitInfo traceRay(Ray ray)
     return hitInfo;
 }
 
-vec3 computeDiffuseShading(HitInfo hitInfo, LightInfo lightInfo) {
-    if (!hitInfo.hit) return vec3(0.3); // Background color
+// Simple random number generator (for diffuse sampling)
+uint rngState;
+float stepAndOutputRNGFloat(inout uint rngState) 
+{
+    rngState = rngState * 747796405u + 2891336453u;
+    uint result = ((rngState >> ((rngState >> 28u) + 4u)) ^ rngState) * 277803737u;
+    result = (result >> 22u) ^ result;
+    return float(result) / 4294967295.0;
+}
 
-    vec3 lightDir = normalize(lightInfo.lightPos - hitInfo.position);
-    float diffuse = max(dot(hitInfo.normal, lightDir), 0.0);
-    vec3 albedo = vec3(0.8); // Simple diffuse albedo (gray)
-    vec3 diffuseColor = albedo * diffuse * lightInfo.lightIntensity + 0.1;
+vec2 randomGaussian(inout uint rngState) 
+{
+    const float u1 = max(1e-38, stepAndOutputRNGFloat(rngState));
+    const float u2 = stepAndOutputRNGFloat(rngState);
+    const float r = sqrt(-2.0 * log(u1));
+    const float theta = 2.0 * 3.141592653589793238462643383279502884197169399375105820974944 * u2;
+    return r * vec2(cos(theta), sin(theta));
+}
 
-    return diffuseColor;
+// Sample cosine-weighted hemisphere
+vec3 sampleHemisphere(vec3 normal, inout uint rngState) 
+{
+    float r1 = stepAndOutputRNGFloat(rngState);
+    float r2 = stepAndOutputRNGFloat(rngState);
+    float theta = acos(sqrt(1.0 - r1));
+    float phi = 2.0 * 3.14159 * r2;
+    vec3 localDir = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+
+    // Align with normal
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, normal));
+    vec3 bitangent = cross(normal, tangent);
+    return tangent * localDir.x + bitangent * localDir.y + normal * localDir.z;
+}
+
+vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo) 
+{
+    vec3 throughput = vec3(1.0); // Accumulated light contribution
+    vec3 radiance = vec3(0.0);   // Total radiance
+    const int MAX_DEPTH = 4;     // Limit bounces
+
+    rngState = seed;
+
+    for (int depth = 0; depth < MAX_DEPTH; ++depth) 
+    {
+        HitInfo hit = traceRay(ray);
+        if (!hit.hit) 
+        {
+            radiance += throughput * vec3(0.8); // Background color
+            break;
+        }
+
+        // Direct lighting (diffuse)
+        vec3 lightDir = normalize(lightInfo.lightPos - hit.position);
+        float diffuse = max(dot(hit.normal, lightDir), 0.0);
+        vec3 albedo = vec3(0.8); // Fixed diffuse albedo
+        vec3 directLight = vec3(0.0);
+
+        // Shadow ray to light
+        Ray shadowRay = Ray(hit.position + hit.normal * 0.001, lightDir); // Offset to avoid self-intersection
+        HitInfo shadowHit = traceRay(shadowRay);
+
+        float lightDist = length(lightInfo.lightPos - hit.position);
+        if (!shadowHit.hit || shadowHit.t >= lightDist - 0.001) // No occlusion or hit beyond light
+        { 
+            directLight = albedo * diffuse * lightInfo.lightIntensity;
+        }
+        radiance += throughput * directLight;
+
+        // Indirect lighting (diffuse)
+        vec3 bounceDir = sampleHemisphere(hit.normal, rngState);
+        throughput *= albedo * dot(hit.normal, bounceDir); // Cosine term included
+        ray = Ray(hit.position + hit.normal * 0.001, bounceDir); // Offset to avoid self-intersection
+    }
+
+    return radiance;
 }
 
 void main()
@@ -159,18 +237,27 @@ void main()
     float ndcY = (2.0 * float(pixel.y) / float(resolution.y)) - 1.0;
     float aspect = float(resolution.x) / float(resolution.y);
 
+    // Seed RNG with pixel coords and sample batch
+    uint seed = uint((pushConstants.sample_batch * resolution.y + pixel.y) * resolution.x + pixel.x);
+    rngState = seed;
+
+    // Add jitter to NDC coordinates (anti-aliasing)
+    vec2 jitter = randomGaussian(rngState);
+    float jitterScale = 0.5; // Scale to keep jitter within half a pixel
+    ndcX += jitter.x * jitterScale / float(resolution.x);
+    ndcY += jitter.y * jitterScale / float(resolution.y);
+
     float tanFov = tan(radians(camera.fov.x * 0.5));
     vec3 right = normalize(cross(camera.cameraDir, -camera.cameraUp));
     vec3 up = normalize(cross(right, camera.cameraDir));
     vec3 rayDir = normalize(camera.cameraDir + (ndcX * tanFov * aspect) * -right - (ndcY * tanFov) * up);
 
-    Ray ray = Ray(camera.cameraPos, rayDir);    // Ray to trace
-
-    HitInfo hitInfo = traceRay(ray);                // Hit info for shading
-
+    Ray ray = Ray(camera.cameraPos, rayDir);                    // Ray to trace
     LightInfo lightInfo = LightInfo(vec3(-3.0, 5.0, 0.0), 1.0); // Light info
-    vec3 color = computeDiffuseShading(hitInfo, lightInfo);         // Compute shading
 
-    vec4 pixelColor = vec4(vec3(color), 1.0);
-    imageStore(outputImage, ivec2(pixel), pixelColor);
+    vec3 color = pathTrace(ray, seed, lightInfo);
+
+    vec4 prevColor = imageLoad(outputImage, ivec2(pixel));
+    vec4 newColor = (prevColor * float(pushConstants.sample_batch) + vec4(color, 1.0)) / float(pushConstants.sample_batch + 1);
+    imageStore(outputImage, ivec2(pixel), newColor);
 }

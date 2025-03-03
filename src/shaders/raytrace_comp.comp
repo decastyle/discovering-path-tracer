@@ -1,6 +1,6 @@
 #version 460
 
-
+const float MATH_PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
 
 struct BVHNode 
 {
@@ -185,7 +185,7 @@ vec2 randomGaussian(inout uint rngState)
     const float u1      = max(1e-38, stepAndOutputRNGFloat(rngState));
     const float u2      = stepAndOutputRNGFloat(rngState);
     const float r       = sqrt(-2.0 * log(u1));
-    const float theta   = 2.0 * 3.141592653589793238462643383279502884197169399375105820974944 * u2;
+    const float theta   = 2.0 * MATH_PI * u2;
 
     return r * vec2(cos(theta), sin(theta));
 }
@@ -196,7 +196,7 @@ vec3 sampleHemisphere(vec3 normal, inout uint rngState)
     float r1        = stepAndOutputRNGFloat(rngState);
     float r2        = stepAndOutputRNGFloat(rngState);
     float theta     = acos(sqrt(1.0 - r1));
-    float phi       = 2.0 * 3.14159 * r2;
+    float phi       = 2.0 * MATH_PI * r2;
     vec3 localDir   = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 
     // Align with normal
@@ -205,6 +205,16 @@ vec3 sampleHemisphere(vec3 normal, inout uint rngState)
     vec3 bitangent  = cross(normal, tangent);
 
     return tangent * localDir.x + bitangent * localDir.y + normal * localDir.z;
+}
+
+// Sample uniform direction over full sphere
+vec3 sampleSphere(inout uint rngState) 
+{
+    float z     = 2.0 * stepAndOutputRNGFloat(rngState) - 1.0; // [-1, 1]
+    float theta = 2.0 * MATH_PI * stepAndOutputRNGFloat(rngState); // [0, 2π]
+    float r     = sqrt(1.0 - z * z); // Radius in xy-plane
+    
+    return vec3(r * cos(theta), r * sin(theta), z); // Unit vector
 }
 
 vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo) 
@@ -239,7 +249,7 @@ vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo)
         float lightDist     = length(lightInfo.lightPos - hit.position);
 
         if (!shadowHit.hit || shadowHit.t >= lightDist - OFFSET) // No occlusion or hit beyond light
-        { 
+        {
             directLight     = albedo * diffuse * lightInfo.lightIntensity;
         }
 

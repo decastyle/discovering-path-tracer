@@ -252,16 +252,46 @@ vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo)
         {
             directLight     = albedo * diffuse * lightInfo.lightIntensity;
         }
+        radiance += throughput * directLight;
 
-        // Subsurface scattering (diffusion approximation)
-        vec3 sssAlbedo          = vec3(1.0, 0.0, 0.0);  // Subsurface albedo (red)
-        float sssRadius         = 1.3;                  // Larger scattering distance for broader effect
-        float sssStrength       = 20.0;                 // Multiplier to boost SSS visibility
-        float sssWeight         = exp(-lightDist / sssRadius); // Exponential falloff
-        vec3 sssContribution    = sssAlbedo * sssWeight * lightInfo.lightIntensity * sssStrength;
 
-        // Combine diffuse and SSS
-        radiance            += throughput * (directLight + sssContribution);
+        // Subsurface scattering (multi-bounce random walk)
+        vec3 sssAlbedo              = vec3(0.9, 0.5, 0.3);  // Subsurface albedo (reddish)
+        float sssRadius             = 2.0;                  // Scattering radius (controls waxiness)
+        const int SSS_MAX_BOUNCES   = 3;                    // Limit internal bounces
+        vec3 sssThroughput          = vec3(1.0);            // Internal light contribution
+
+        Ray sssRay = Ray(hit.position - hit.normal * OFFSET, sampleSphere(rngState)); // Enter material
+
+        for (int sssDepth = 0; sssDepth < SSS_MAX_BOUNCES; ++sssDepth) 
+        {
+            HitInfo sssHit = traceRay(sssRay);
+            if (!sssHit.hit) break; // Escaped material
+
+            float travelDist    = sssHit.t;
+            vec3 currentPos     = sssRay.origin + sssRay.dir * travelDist;
+
+            // Check light visibility at this point
+            vec3 exitLightDir   = normalize(lightInfo.lightPos - currentPos);
+            float exitDiffuse   = max(dot(sssHit.normal, exitLightDir), 0.0);
+            Ray exitShadowRay   = Ray(currentPos + sssHit.normal * OFFSET, exitLightDir);
+
+            HitInfo exitShadowHit = traceRay(exitShadowRay);
+            float exitLightDist = length(lightInfo.lightPos - currentPos);
+
+            if (!exitShadowHit.hit || exitShadowHit.t >= exitLightDist - OFFSET) 
+            {
+                vec3 sssLight = sssAlbedo * exitDiffuse * lightInfo.lightIntensity;
+                // Scale SSS contribution by sssRadius for stronger waxiness
+                radiance += throughput * sssThroughput * sssLight * (1.0 + sssRadius * 0.5);
+                break; // Exit found, stop walking
+            }
+
+            // Attenuate with slower decay for larger radius
+            sssThroughput   *= sssAlbedo * exp(-travelDist / (sssRadius * 1.5)); // Adjusted decay
+            sssRay          = Ray(currentPos - sssHit.normal * OFFSET, sampleSphere(rngState)); // Bounce inside
+        }
+
 
         // Indirect lighting (diffuse)
         vec3 bounceDir      = sampleHemisphere(hit.normal, rngState);

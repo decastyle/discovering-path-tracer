@@ -136,33 +136,29 @@ void VulkanRayTracer::initComputePipeline()
 
     // Prepare light data
     std::vector<glm::vec3> positions = {
-        glm::vec3(0.0f, 5.0f, 0.0f),
-        glm::vec3(3.0f, 3.0f, 0.0f)
+        glm::vec3(0.0f, 2.0f, 0.0f),
     };
     std::vector<glm::vec3> normals = {
         glm::vec3(0.0f, -1.0f, 0.0f),
-        glm::vec3(-1.0f, -1.0f, 0.0f)
-    };
-    std::vector<glm::vec2> sizes = {
-        glm::vec2(2.0f, 2.0f),
-        glm::vec2(1.0f, 1.0f)
     };
     std::vector<glm::vec3> intensities = {
         glm::vec3(10.0f, 10.0f, 10.0f),
-        glm::vec3(5.0f, 2.0f, 2.0f)
+    };
+    std::vector<glm::vec2> sizes = {
+        glm::vec2(2.5f, 2.5f),
     };
 
-    Light lights(positions, normals, sizes, intensities);
+    Light lights(positions, normals, intensities, sizes);
 
     // Setup light buffer
     VkDeviceSize lightSize  = lights.getLights().size() * sizeof(AreaLightData);
     m_lightBuffer           = VulkanBuffer(m_vulkanWindow, 
-                                            BVHSize,
+                                            lightSize,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                             m_vulkanWindow->deviceLocalMemoryIndex());
         
     m_lightStagingBuffer    = VulkanBuffer(m_vulkanWindow, 
-                                            BVHSize,
+                                            lightSize,
                                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                             m_vulkanWindow->hostVisibleMemoryIndex());
 
@@ -493,7 +489,13 @@ void VulkanRayTracer::initComputePipeline()
     };
 
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , vertexBufferWrite , indexBufferWrite , BVHBufferWrite , uniformBufferWrite , lightBufferWrite };
+    VkWriteDescriptorSet descriptorWrites[] = { 
+        storageImageWrite , 
+        vertexBufferWrite , 
+        indexBufferWrite , 
+        BVHBufferWrite , 
+        uniformBufferWrite , 
+        lightBufferWrite };
     
     m_deviceFunctions->vkUpdateDescriptorSets(m_device, 6, descriptorWrites, 0, nullptr);
 

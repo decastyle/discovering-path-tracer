@@ -14,18 +14,12 @@ struct Ray
     vec3 dir;
 };
 
-struct LightInfo
-{
-    vec3 lightPos;
-    float lightIntensity;
-};
-
 struct AreaLight 
 {
-    vec3 position;      // Center of the area light
-    vec3 normal;        // Orientation of the light (for rectangular lights)
-    vec2 size;          // Width and height of the rectangle
-    vec3 intensity;     // Color/intensity of the light (e.g., RGB or single value)
+    vec4 position;  // Center of the area light
+    vec4 normal;    // Orientation of the light (for rectangular lights)
+    vec4 intensity; // Color/intensity of the light (e.g., RGB or single value)
+    vec4 size;      // Width and height of the rectangle
 };
 
 struct HitInfo 
@@ -80,8 +74,6 @@ layout(binding = 5, set = 0) buffer AreaLights
 {
     AreaLight lights[];
 } areaLights;
-
-int lightCount = int(areaLights.lights.length());
 
 vec3 getVertex(uint vertexIndex) 
 {
@@ -205,22 +197,6 @@ vec2 randomGaussian(inout uint rngState)
     return r * vec2(cos(theta), sin(theta));
 }
 
-vec3 sampleAreaLight(AreaLight light, inout uint rngState, out vec3 lightDir, out float pdf) 
-{
-    // Generate random point on the rectangle
-    vec2 rand = vec2(stepAndOutputRNGFloat(rngState), stepAndOutputRNGFloat(rngState)); // [0,1] random numbers
-    vec3 u = normalize(cross(light.normal, vec3(0.0, 1.0, 0.0))); // Tangent vector
-    vec3 v = cross(light.normal, u); // Bitangent vector
-    vec3 point = light.position + (rand.x - 0.5) * light.size.x * u + (rand.y - 0.5) * light.size.y * v;
-
-    // Compute direction and Probability Density Function
-    lightDir = normalize(point - light.position); // Direction from hit point to sampled point
-    float area = light.size.x * light.size.y;
-    pdf = 1.0 / area; // Uniform sampling PDF
-
-    return point;
-}
-
 // Sample cosine-weighted hemisphere
 vec3 sampleHemisphere(vec3 normal, inout uint rngState) 
 {
@@ -248,101 +224,166 @@ vec3 sampleSphere(inout uint rngState)
     return vec3(r * cos(theta), r * sin(theta), z); // Unit vector
 }
 
-vec3 pathTrace(Ray ray, uint seed, LightInfo lightInfo) // Keeping lightInfo for compatibility, but we'll use SSBO
+vec3 sampleAreaLight(AreaLight light, inout uint rngState) 
 {
-    vec3 throughput     = vec3(1.0);    // Accumulated light contribution
-    vec3 radiance       = vec3(0.0);    // Total radiance
-    const int MAX_DEPTH = 4;            // Limit bounces
-    const float OFFSET  = 0.001;        // Offset to avoid self-intersection
+    float u     = stepAndOutputRNGFloat(rngState) * 2.0 - 1.0; // [-1, 1]
+    float v     = stepAndOutputRNGFloat(rngState) * 2.0 - 1.0; // [-1, 1]
+    
+    // Robust tangent space: Avoid parallel vectors
+    vec3 n      = normalize(light.normal.xyz); // Ensure normal is normalized
+    vec3 basis  = abs(n.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 right  = normalize(cross(n, basis));
+    vec3 up     = cross(right, n);
+    
+    vec3 point  = light.position.xyz + (right * u * light.size.x * 0.5) + (up * v * light.size.y * 0.5);
+    return point;
+}
+
+// Helper function to intersect a ray with an area light
+bool intersectAreaLight(Ray ray, AreaLight light, out float t, out vec3 hitPos) 
+{
+    // Plane intersection: t = dot(normal, (planePoint - rayOrigin)) / dot(normal, rayDir)
+    float denom = dot(light.normal.xyz, ray.dir);
+    if (abs(denom) < 0.0001) return false; // Ray parallel to light plane
+    
+    vec3 planePoint = light.position.xyz;
+    t = dot(light.normal.xyz, planePoint - ray.origin) / denom;
+    if (t <= 0.0) return false; // Intersection behind ray origin
+    
+    hitPos = ray.origin + ray.dir * t;
+    
+    // Transform hit position into light's local space with robust tangent space
+    vec3 n      = normalize(light.normal.xyz); // Ensure normal is normalized
+    vec3 basis  = abs(n.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 right  = normalize(cross(n, basis));
+    vec3 up     = cross(right, n);
+    
+    vec3 toHit  = hitPos - light.position.xyz;
+    
+    float u     = dot(toHit, right); // Projection along "width" axis
+    float v     = dot(toHit, up);    // Projection along "height" axis
+    
+    // Check if hit is within light bounds
+    float halfWidth     = light.size.x * 0.5;
+    float halfHeight    = light.size.y * 0.5;
+    return abs(u) <= halfWidth && abs(v) <= halfHeight;
+}
+
+vec3 pathTrace(Ray ray, uint seed)
+{
+    vec3 throughput     = vec3(1.0);
+    vec3 radiance       = vec3(0.0);
+    const int MAX_DEPTH = 4;
+    const float OFFSET  = 0.001;
 
     rngState = seed;
 
+    // Check for direct intersection with area lights first
+    uint lightCount = uint(areaLights.lights.length());
+    for (int i = 0; i < lightCount; ++i) 
+    {
+        AreaLight light = areaLights.lights[i];
+        float t;
+        vec3 hitPos;
+        if (intersectAreaLight(ray, light, t, hitPos)) 
+        {
+            // Check if the light is occluded by scene geometry
+            Ray shadowRay = Ray(ray.origin, ray.dir);
+            HitInfo shadowHit = traceRay(shadowRay);
+            if (!shadowHit.hit || shadowHit.t > t) 
+            {
+                // No occlusion or hit is beyond light; show light directly
+                radiance = light.intensity.xyz;
+                return radiance;
+            }
+        }
+    }
+
+    // If no direct light hit, proceed with regular path-tracing
     for (int depth = 0; depth < MAX_DEPTH; ++depth) 
     {
         HitInfo hit = traceRay(ray);
         if (!hit.hit) 
         {
-            radiance += throughput * vec3(0.2); // Background color
+            radiance += throughput * vec3(0.0); // Background color
             break;
         }
 
-        // Direct lighting (area lights via SSBO)
-        vec3 albedo         = vec3(0.8); // Fixed diffuse albedo
-        vec3 directLight    = vec3(0.0);
+        // Direct lighting from all area lights
+        vec3 albedo     = vec3(0.8);
+        vec3 directLight = vec3(0.0);
+        uint lightCount = uint(areaLights.lights.length());
 
         for (int i = 0; i < lightCount; ++i) 
         {
-            AreaLight light = areaLights.lights[i]; // Current light
-            vec3 lightDir;
-            float pdf;
-            vec3 lightPoint = sampleAreaLight(light, rngState, lightDir, pdf);
+            AreaLight light = areaLights.lights[i];
+            
+            // Sample a random point on the area light
+            vec3 lightPoint = sampleAreaLight(light, rngState);
+            vec3 lightDir   = normalize(lightPoint - hit.position);
+            float diffuse   = max(dot(hit.normal, lightDir), 0.0);
 
-            // Compute diffuse term
-            float diffuse = max(dot(hit.normal, lightDir), 0.0);
+            // Shadow ray to the sampled point
+            Ray shadowRay   = Ray(hit.position + hit.normal * OFFSET, lightDir);
+            HitInfo shadowHit = traceRay(shadowRay);
+            float lightDist = length(lightPoint - hit.position);
 
-            // Shadow ray to light
-            Ray shadowRay       = Ray(hit.position + hit.normal * OFFSET, lightDir); 
-            HitInfo shadowHit   = traceRay(shadowRay);
-
-            float lightDist     = length(lightInfo.lightPos - hit.position);
-
-            if (!shadowHit.hit || shadowHit.t >= lightDist - OFFSET) // No occlusion or hit beyond light
+            if (!shadowHit.hit || shadowHit.t >= lightDist - OFFSET) 
             {
-                float cosTheta = max(dot(-lightDir, light.normal), 0.0); // Light's emission angle
-                vec3 lightContrib = albedo * light.intensity * diffuse * cosTheta / (pdf * lightDist * lightDist);
-                directLight += lightContrib;
+                // Attenuate by distance (inverse square law) and area light intensity
+                float distSqr   = lightDist * lightDist;
+                vec3 lightContrib = light.intensity.xyz * diffuse * (1.0 / max(distSqr, 0.01));
+                directLight    += albedo * lightContrib;
             }
         }
-        radiance += throughput * directLight / float(lightCount); // Average over lights
-
-        // // Subsurface scattering (multi-bounce random walk)
-        // vec3 sssAlbedo              = vec3(0.9, 0.5, 0.3);  // Subsurface albedo (reddish)
-        // float sssRadius             = 2.0;                  // Scattering radius (controls waxiness)
-        // const int SSS_MAX_BOUNCES   = 3;                    // Limit internal bounces
-        // vec3 sssThroughput          = vec3(1.0);            // Internal light contribution
-
-        // Ray sssRay = Ray(hit.position - hit.normal * OFFSET, sampleSphere(rngState)); // Enter material
-
-        // for (int sssDepth = 0; sssDepth < SSS_MAX_BOUNCES; ++sssDepth) 
-        // {
-        //     HitInfo sssHit = traceRay(sssRay);
-        //     if (!sssHit.hit) break; // Escaped material
-
-        //     float travelDist    = sssHit.t;
-        //     vec3 currentPos     = sssRay.origin + sssRay.dir * travelDist;
-
-        //     // Sample area lights for SSS exit point
-        //     vec3 sssLight = vec3(0.0);
-        //     for (int i = 0; i < lightCount; ++i) {
-        //         AreaLight light = areaLights.lights[i];
-        //         vec3 lightDir;
-        //         float pdf;
-        //         vec3 lightPoint = sampleAreaLight(light, rngState, lightDir, pdf);
-
-        //         float exitDiffuse = max(dot(sssHit.normal, lightDir), 0.0);
-        //         Ray exitShadowRay = Ray(currentPos + sssHit.normal * OFFSET, lightDir);
-        //         HitInfo exitShadowHit = traceRay(exitShadowRay);
-        //         float exitLightDist = length(lightPoint - currentPos);
-
-        //         if (!exitShadowHit.hit || exitShadowHit.t >= exitLightDist - OFFSET) 
-        //         {
-        //             float cosTheta = max(dot(-lightDir, light.normal), 0.0);
-        //             sssLight += sssAlbedo * light.intensity * exitDiffuse * cosTheta / (pdf * exitLightDist * exitLightDist);
-        //         }
-        //     }
-        //     radiance += throughput * sssThroughput * sssLight * (1.0 + sssRadius * 0.5) / float(lightCount);
-        //     break; // Exit found, stop walking
-
-        //     // Attenuate with slower decay for larger radius
-        //     sssThroughput   *= sssAlbedo * exp(-travelDist / (sssRadius * 1.5)); // Adjusted decay
-        //     sssRay          = Ray(currentPos - sssHit.normal * OFFSET, sampleSphere(rngState)); // Bounce inside
-        // }
+        radiance += throughput * directLight;
 
 
-        // Indirect lighting (diffuse)
-        vec3 bounceDir      = sampleHemisphere(hit.normal, rngState);
-        throughput          *= albedo * dot(hit.normal, bounceDir); // Cosine term included
-        ray                 = Ray(hit.position + hit.normal * OFFSET, bounceDir);
+        // Subsurface scattering (multi-bounce random walk)
+        vec3 sssAlbedo      = vec3(1.0, 0.2, 0.1);
+        float sssRadius     = 1.0;
+        const int SSS_MAX_BOUNCES = 3;
+        vec3 sssThroughput  = vec3(1.0);
+
+        Ray sssRay = Ray(hit.position - hit.normal * OFFSET, sampleSphere(rngState));
+
+        for (int sssDepth = 0; sssDepth < SSS_MAX_BOUNCES; ++sssDepth) 
+        {
+            HitInfo sssHit = traceRay(sssRay);
+            if (!sssHit.hit) break;
+
+            float travelDist = sssHit.t;
+            vec3 currentPos  = sssRay.origin + sssRay.dir * travelDist;
+
+            // Check visibility to all area lights
+            vec3 sssLight = vec3(0.0);
+            for (int i = 0; i < lightCount; ++i) 
+            {
+                AreaLight light     = areaLights.lights[i];
+                vec3 lightPoint     = sampleAreaLight(light, rngState);
+                vec3 exitLightDir   = normalize(lightPoint - currentPos);
+                float exitDiffuse   = max(dot(sssHit.normal, exitLightDir), 0.0);
+                Ray exitShadowRay   = Ray(currentPos + sssHit.normal * OFFSET, exitLightDir);
+                HitInfo exitShadowHit = traceRay(exitShadowRay);
+                float exitLightDist = length(lightPoint - currentPos);
+
+                if (!exitShadowHit.hit || exitShadowHit.t >= exitLightDist - OFFSET) 
+                {
+                    float distSqr = exitLightDist * exitLightDist;
+                    sssLight += sssAlbedo * exitDiffuse * light.intensity.xyz * (1.0 / max(distSqr, 0.01));
+                }
+            }
+            radiance += throughput * sssThroughput * sssLight * (1.0 + sssRadius * 0.5);
+
+            sssThroughput *= sssAlbedo * exp(-travelDist / (sssRadius * 1.5));
+            sssRay = Ray(currentPos - sssHit.normal * OFFSET, sampleSphere(rngState));
+        }
+
+
+        // Indirect lighting
+        vec3 bounceDir  = sampleHemisphere(hit.normal, rngState);
+        throughput      *= albedo * dot(hit.normal, bounceDir);
+        ray             = Ray(hit.position + hit.normal * OFFSET, bounceDir);
     }
 
     return radiance;
@@ -369,8 +410,8 @@ void main()
 
 
     // Depth of field parameters
-    float aperture      = 0.0; // Aperture size (controls blur strength)
-    float focalDistance = 5.0; // Distance to focal plane
+    float aperture      = 0.02; // Aperture size (controls blur strength)
+    float focalDistance = 3.0; // Distance to focal plane
 
     // Jitter ray origin for depth of field
     vec2 apertureOffset = randomGaussian(rngState) * aperture;
@@ -392,10 +433,8 @@ void main()
 
     
 
-    Ray ray             = Ray(newOrigin, rayDir);        // Ray to trace
-    LightInfo lightInfo = LightInfo(vec3(-3.0, 5.0, 0.0), 1.0); // Light info
-
-    vec3 color          = pathTrace(ray, seed, lightInfo);
+    Ray ray             = Ray(newOrigin, rayDir);
+    vec3 color          = pathTrace(ray, seed);
 
     vec4 prevColor      = imageLoad(outputImage, ivec2(pixel));
     vec4 newColor       = (prevColor * float(pushConstants.sample_batch) + vec4(color, 1.0)) / float(pushConstants.sample_batch + 1);

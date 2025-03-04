@@ -34,6 +34,9 @@ private:
     VulkanBuffer m_BVHBuffer{};
     VulkanBuffer m_BVHStagingBuffer{};
 
+    VulkanBuffer m_lightBuffer{};
+    VulkanBuffer m_lightStagingBuffer{};
+
     VulkanBuffer m_uniformBuffer{};
 
     VulkanImage m_storageImage{};

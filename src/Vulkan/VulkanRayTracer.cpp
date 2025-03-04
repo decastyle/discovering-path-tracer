@@ -5,6 +5,7 @@
 #include "VulkanCommandBuffer.h"
 #include "VulkanCommandPool.h"
 #include "BoundingVolumeHierarchy.h"
+#include "Light.h"
 
 #include <QThread>
 
@@ -133,6 +134,40 @@ void VulkanRayTracer::initComputePipeline()
                                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
                                             m_vulkanWindow->hostVisibleMemoryIndex());
 
+    // Prepare light data
+    std::vector<glm::vec3> positions = {
+        glm::vec3(0.0f, 5.0f, 0.0f),
+        glm::vec3(3.0f, 3.0f, 0.0f)
+    };
+    std::vector<glm::vec3> normals = {
+        glm::vec3(0.0f, -1.0f, 0.0f),
+        glm::vec3(-1.0f, -1.0f, 0.0f)
+    };
+    std::vector<glm::vec2> sizes = {
+        glm::vec2(2.0f, 2.0f),
+        glm::vec2(1.0f, 1.0f)
+    };
+    std::vector<glm::vec3> intensities = {
+        glm::vec3(10.0f, 10.0f, 10.0f),
+        glm::vec3(5.0f, 2.0f, 2.0f)
+    };
+
+    Light lights(positions, normals, sizes, intensities);
+
+    // Setup light buffer
+    VkDeviceSize lightSize  = lights.getLights().size() * sizeof(AreaLightData);
+    m_lightBuffer           = VulkanBuffer(m_vulkanWindow, 
+                                            BVHSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_lightStagingBuffer    = VulkanBuffer(m_vulkanWindow, 
+                                            BVHSize,
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_lightStagingBuffer.copyData(lights.getLights().data(), lightSize); 
+
     /////////////////////////////////////////////////////////////////////
     // Copy staging buffers to device local memory buffers
     /////////////////////////////////////////////////////////////////////
@@ -181,6 +216,19 @@ void VulkanRayTracer::initComputePipeline()
                                             m_BVHBuffer.getBuffer(), 
                                             1, &BVHBufferCopyRegion);
 
+        // Copy light staging buffer to light buffer
+
+        VkBufferCopy lightBufferCopyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = lightSize
+        };
+
+        m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
+                                            m_lightStagingBuffer.getBuffer(), 
+                                            m_lightBuffer.getBuffer(), 
+                                            1, &lightBufferCopyRegion);
+
         VkMemoryBarrier memoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
             .pNext = nullptr,
@@ -222,7 +270,7 @@ void VulkanRayTracer::initComputePipeline()
         },
         {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 3  // For vertex, index, and BVH buffers
+            .descriptorCount = 4  // For vertex, index, BVH and light buffers
         },
         {
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -281,7 +329,14 @@ void VulkanRayTracer::initComputePipeline()
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
             .pImmutableSamplers = nullptr
-        }
+        },
+        {   // Binding 5: Light Buffer (SSBO)
+            .binding = 5,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
     };
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo 
@@ -289,7 +344,7 @@ void VulkanRayTracer::initComputePipeline()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 5,
+        .bindingCount = 6,
         .pBindings = descriptorSetLayoutBinding
     };
 
@@ -346,6 +401,12 @@ void VulkanRayTracer::initComputePipeline()
         .buffer = m_uniformBuffer.getBuffer(),
         .offset = 0,
         .range = uniformBufferDeviceSize
+    };
+
+    VkDescriptorBufferInfo lightBufferInfo = {
+        .buffer = m_lightBuffer.getBuffer(),
+        .offset = 0,
+        .range = lightSize
     };
 
     VkWriteDescriptorSet storageImageWrite
@@ -417,10 +478,24 @@ void VulkanRayTracer::initComputePipeline()
         .pTexelBufferView = nullptr
     };
 
+    VkWriteDescriptorSet lightBufferWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 5,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &lightBufferInfo,
+        .pTexelBufferView = nullptr
+    };
 
-    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , vertexBufferWrite , indexBufferWrite , BVHBufferWrite , uniformBufferWrite };
+
+    VkWriteDescriptorSet descriptorWrites[] = { storageImageWrite , vertexBufferWrite , indexBufferWrite , BVHBufferWrite , uniformBufferWrite , lightBufferWrite };
     
-    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 5, descriptorWrites, 0, nullptr);
+    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 6, descriptorWrites, 0, nullptr);
 
     /////////////////////////////////////////////////////////////////////
     // Compute pipeline setup

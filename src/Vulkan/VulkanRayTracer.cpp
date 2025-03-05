@@ -68,10 +68,11 @@ void VulkanRayTracer::initComputePipeline()
     }
 
     const std::vector<tinyobj::real_t>& objVertices = reader.GetAttrib().GetVertices(); // [x0, y0, z0, x1, y1, z1, ...]
+    const std::vector<tinyobj::real_t>& objUVs = reader.GetAttrib().texcoords; // [u, v, u, v, ...]
     const std::vector<tinyobj::shape_t>& objShapes = reader.GetShapes(); // All shapes in the file
 
     // Store indices from all shapes
-    std::vector<uint32_t> objIndices; // [v0, v1, v2, v3, v4, v5, ...]
+    std::vector<uint32_t> objIndices; // [v0, v1, v2, v0, v1, v2, ...]
 
     for (const tinyobj::shape_t& objShape : objShapes) {
         for (const tinyobj::index_t& index : objShape.mesh.indices) {
@@ -79,8 +80,18 @@ void VulkanRayTracer::initComputePipeline()
         }
     }
 
+    // Store material indices from all shapes
+    std::vector<uint32_t> matIndices; // [matIdx0, matIdx1, ...] (one per triangle)
+
+    for (const tinyobj::shape_t& shape : objShapes) 
+    {
+        for (int matId : shape.mesh.material_ids) 
+        {
+            matIndices.push_back(matId >= 0 ? static_cast<uint32_t>(matId) : 0);
+        }
+    }
+
     BVH bvh(objVertices, objIndices);
-    // bvh.printBVH(bvh);
 
     /////////////////////////////////////////////////////////////////////
     // Buffer setup
@@ -164,6 +175,34 @@ void VulkanRayTracer::initComputePipeline()
 
     m_lightStagingBuffer.copyData(lights.getLights().data(), lightSize); 
 
+    // Setup UV buffer
+    VkDeviceSize UVSize     = objUVs.size() * sizeof(tinyobj::real_t);
+    m_UVBuffer              = VulkanBuffer(m_vulkanWindow, 
+                                            UVSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_UVStagingBuffer       = VulkanBuffer(m_vulkanWindow, 
+                                            UVSize,
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_UVStagingBuffer.copyData(objUVs.data(), UVSize); 
+
+    // Setup material index buffer
+    VkDeviceSize materialIndexSize  = matIndices.size() * sizeof(uint32_t);
+    m_materialIndexBuffer           = VulkanBuffer(m_vulkanWindow, 
+                                            materialIndexSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            m_vulkanWindow->deviceLocalMemoryIndex());
+        
+    m_materialIndexStagingBuffer    = VulkanBuffer(m_vulkanWindow, 
+                                            materialIndexSize,
+                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                            m_vulkanWindow->hostVisibleMemoryIndex());
+
+    m_materialIndexStagingBuffer.copyData(matIndices.data(), materialIndexSize); 
+
     /////////////////////////////////////////////////////////////////////
     // Copy staging buffers to device local memory buffers
     /////////////////////////////////////////////////////////////////////
@@ -188,7 +227,7 @@ void VulkanRayTracer::initComputePipeline()
 
         // Copy index staging buffer to index buffer
 
-            VkBufferCopy indexBufferCopyRegion = {
+        VkBufferCopy indexBufferCopyRegion = {
             .srcOffset = 0,
             .dstOffset = 0,
             .size = indexSize
@@ -224,6 +263,32 @@ void VulkanRayTracer::initComputePipeline()
                                             m_lightStagingBuffer.getBuffer(), 
                                             m_lightBuffer.getBuffer(), 
                                             1, &lightBufferCopyRegion);
+
+        // Copy UV staging buffer to vertex buffer
+
+        VkBufferCopy UVBufferCopyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = UVSize
+        };
+
+        m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
+                                            m_UVStagingBuffer.getBuffer(), 
+                                            m_UVBuffer.getBuffer(), 
+                                            1, &UVBufferCopyRegion);
+
+        // Copy material index staging buffer to material index buffer
+
+        VkBufferCopy materialIndexBufferCopyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = materialIndexSize
+        };
+
+        m_deviceFunctions->vkCmdCopyBuffer(commandBuffer.getCommandBuffer(), 
+                                            m_materialIndexStagingBuffer.getBuffer(), 
+                                            m_materialIndexBuffer.getBuffer(), 
+                                            1, &materialIndexBufferCopyRegion);
 
         VkMemoryBarrier memoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -266,7 +331,7 @@ void VulkanRayTracer::initComputePipeline()
         },
         {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 4  // For vertex, index, BVH and light buffers
+            .descriptorCount = 6  // For vertex, UV, index, material index, BVH and light buffers
         },
         {
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -333,6 +398,20 @@ void VulkanRayTracer::initComputePipeline()
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
             .pImmutableSamplers = nullptr
         },
+        {   // Binding 6: UV Buffer (SSBO)
+            .binding = 6,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        {   // Binding 7: Material Index Buffer (SSBO)
+            .binding = 7,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = nullptr
+        },
     };
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo 
@@ -340,7 +419,7 @@ void VulkanRayTracer::initComputePipeline()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .bindingCount = 6,
+        .bindingCount = 8,
         .pBindings = descriptorSetLayoutBinding
     };
 
@@ -367,14 +446,12 @@ void VulkanRayTracer::initComputePipeline()
         return;
     }
     
-    // Storage Image Info
     VkDescriptorImageInfo descriptorImageInfo = {
         .sampler = VK_NULL_HANDLE,
         .imageView = m_storageImage.getImageView(),
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    // SSBO Info for Vertex, Index, and BVH Buffers
     VkDescriptorBufferInfo vertexBufferInfo = {
         .buffer = m_vertexBuffer.getBuffer(),
         .offset = 0,
@@ -403,6 +480,18 @@ void VulkanRayTracer::initComputePipeline()
         .buffer = m_lightBuffer.getBuffer(),
         .offset = 0,
         .range = lightSize
+    };
+
+    VkDescriptorBufferInfo UVBufferInfo = {
+        .buffer = m_UVBuffer.getBuffer(),
+        .offset = 0,
+        .range = UVSize
+    };
+
+    VkDescriptorBufferInfo materialIndexBufferInfo = {
+        .buffer = m_materialIndexBuffer.getBuffer(),
+        .offset = 0,
+        .range = materialIndexSize
     };
 
     VkWriteDescriptorSet storageImageWrite
@@ -488,6 +577,33 @@ void VulkanRayTracer::initComputePipeline()
         .pTexelBufferView = nullptr
     };
 
+    VkWriteDescriptorSet UVBufferWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 6,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &UVBufferInfo,
+        .pTexelBufferView = nullptr
+    };
+
+    VkWriteDescriptorSet materialIndexBufferWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptorSet,
+        .dstBinding = 7,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &materialIndexBufferInfo,
+        .pTexelBufferView = nullptr
+    };
 
     VkWriteDescriptorSet descriptorWrites[] = { 
         storageImageWrite , 
@@ -495,9 +611,11 @@ void VulkanRayTracer::initComputePipeline()
         indexBufferWrite , 
         BVHBufferWrite , 
         uniformBufferWrite , 
-        lightBufferWrite };
+        lightBufferWrite ,
+        UVBufferWrite ,
+        materialIndexBufferWrite };
     
-    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 6, descriptorWrites, 0, nullptr);
+    m_deviceFunctions->vkUpdateDescriptorSets(m_device, 8, descriptorWrites, 0, nullptr);
 
     /////////////////////////////////////////////////////////////////////
     // Compute pipeline setup

@@ -37,13 +37,15 @@ private:
     VulkanBuffer m_lightBuffer{};
     VulkanBuffer m_lightStagingBuffer{};
 
+    VulkanBuffer m_UVBuffer{};
+    VulkanBuffer m_UVStagingBuffer{};
+
+    VulkanBuffer m_materialIndexBuffer{};
+    VulkanBuffer m_materialIndexStagingBuffer{};
+
     VulkanBuffer m_uniformBuffer{};
 
     VulkanImage m_storageImage{};
-    
-    // VkImage m_storageImage = VK_NULL_HANDLE;
-    // VkDeviceMemory m_storageImageMemory = VK_NULL_HANDLE;
-    // VkImageView m_storageImageView = VK_NULL_HANDLE;
 
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;

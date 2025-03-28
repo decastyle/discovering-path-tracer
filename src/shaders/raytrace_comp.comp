@@ -367,7 +367,7 @@ vec3 pathTrace(Ray ray, uint seed)
         radiance += throughput * directLight;
 
 
-        // Subsurface scattering (multi-bounce random walk)
+        // Subsurface scattering (multi-bounce random walk) test
         vec3 sssAlbedo      = vec3(1.0, 0.2, 0.1);
         float sssRadius     = 1.0;
         const int SSS_MAX_BOUNCES = 3;
